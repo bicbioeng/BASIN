@@ -19,14 +19,15 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
 
 #### Python Setup:
 1. Install Anaconda on your local machine:
-  1. Quick Setup - install Miniconda using the following link: https://docs.conda.io/en/latest/miniconda.html
-  2. If any successive steps don’t work, uninstall Miniconda and install Anaconda instead using the following link: https://docs.anaconda.com/anaconda/install/
+  - Quick Setup - install Miniconda using the following link: https://docs.conda.io/en/latest/miniconda.html
+  - If any successive steps don’t work, uninstall Miniconda and install Anaconda instead using the following link: https://docs.anaconda.com/anaconda/install/
 2. Open the Anaconda terminal (Anaconda Prompt) and switch to the folder containing the “full_environment.yml” file using ` cd path\to\folder\... `
 3. Install the BASIN python environment using the command ` conda env create -f full_environment.yml ` - this will take a few minutes
-4. Ensure the installation worked by executing the following commands in the terminal:
-  1. Activate the environment using “conda activate basin”
-  2. Run cellpose using “python -m cellpose”
-  3. If the cellpose GUI appears, your installation has been successful
+4. Make sure you have the latest version of cellpose by running `pip install cellpose --upgrade`
+5. Ensure the installation worked by executing the following commands in the terminal:
+  - Activate the environment using “conda activate basin”
+  - Run cellpose using ` python -m cellpose `
+  - If the cellpose GUI appears, your installation has been successful
 
 #### R Setup:
 1. Install the required R and Bioconductor packages:
