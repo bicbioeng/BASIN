@@ -39,18 +39,18 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
     BiocManager::install("EBImage") #installs EBImage`
 2. Install the reticulate, keras, and tensorflow packages in RStudio using
 
-  `“install.packages(c(“reticulate”, “keras”, “tensorflow”))”`
+  `install.packages(c(“reticulate”, “keras”, “tensorflow”))`
 
 3. Test the ability for the packages to connect to the Python environment:
   1. Run the following commands in R and check for errors:
-  ` “library(reticulate)
+  `library(reticulate)
   env <- conda_list()$name == "basin"
   envPath <- conda_list()[env,]$python
   envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
   reticulate::use_condaenv(envPath, required=TRUE)
   keras::use_condaenv(envPath, required=TRUE)
-  tensorflow::use_condaenv(envPath, required=TRUE)”
-  `
+  tensorflow::use_condaenv(envPath, required=TRUE)`
+  
   2. Restart your R session and run the BASIN app from the server.R or ui.R files inside of the shinyBASIN folder.
 
 ### Option 2: Package (No Python, No ML Segmentation)
