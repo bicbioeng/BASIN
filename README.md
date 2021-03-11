@@ -32,11 +32,12 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
 1. Install the required R and Bioconductor packages:
   `install.packages(c("purrr", "plyr", "shiny", "shinyBS", "shinyjs",
     "shinydashboard", "shinycssloaders", "shinythemes", "shinyWidgets",
-    "DT", "stringi", "ggpubr", "tcltk", "autothresholdr"))
+    "DT", "stringi", "ggpubr", "tcltk", "autothresholdr"))`
 
-  if (!requireNamespace("BiocManager", quietly = TRUE))
+  `if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager") #installs Bioconductor
     BiocManager::install("EBImage") #installs EBImage`
+    
 2. Install the reticulate, keras, and tensorflow packages in RStudio using
 
   `install.packages(c(“reticulate”, “keras”, “tensorflow”))`
