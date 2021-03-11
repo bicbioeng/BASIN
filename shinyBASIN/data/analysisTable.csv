@@ -1,0 +1,9 @@
+id,filename,label,experiment,biocondition,stain,note,alternative
+1,bcl2_133neg.jpg,,1,control,,,=
+2,bcl2_133pos.jpg,,1,test,,,=
+3,bcl2dapi_133neg.jpg,,1,control,,,=
+4,bcl2dapi_133pos.jpg,,1,test,,,=
+5,dmso_actin.jpg,,2,control,,,=
+6,dmso_actin_ptk7.jpg,,2,test,,,=
+7,dmso_ptk7.jpg,,2,control,,,=
+8,vatal_actin_ptk7.jpg,,2,test,,,=
