@@ -46,13 +46,13 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
 
 3. Test the ability for the packages to connect to the Python environment:
   - Run the following commands in R and check for errors:
-  `library(reticulate)
-  env <- conda_list()$name == "basin"
-  envPath <- conda_list()[env,]$python
-  envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
-  reticulate::use_condaenv(envPath, required=TRUE)
-  keras::use_condaenv(envPath, required=TRUE)
-  tensorflow::use_condaenv(envPath, required=TRUE)`
+  `library(reticulate)`
+  `env <- conda_list()$name == "basin"`
+  `envPath <- conda_list()[env,]$python`
+  `envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")`
+  `reticulate::use_condaenv(envPath, required=TRUE)`
+  `keras::use_condaenv(envPath, required=TRUE)`
+  `tensorflow::use_condaenv(envPath, required=TRUE)`
   
   - Restart your R session and run the BASIN app from the server.R or ui.R files inside of the shinyBASIN folder.
 
