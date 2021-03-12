@@ -25,9 +25,10 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
 3. Install the BASIN python environment using the command ` conda env create -f full_environment.yml ` - this will take a few minutes
 4. Make sure you have the latest version of cellpose by running `pip install cellpose --upgrade`
 5. Ensure the installation worked by executing the following commands in the terminal:
-  - Activate the environment using “conda activate basin”
+  - Activate the environment using ` conda activate basin `
   - Run cellpose using ` python -m cellpose `
   - If the cellpose GUI appears, your installation has been successful
+6. Once Python installation is complete, you can always run cellpose by running ` python -m cellpose ` in the Anaconda terminal. Note that any time you open a new Anaconda terminal, you will have to re-run the ` conda activate basin ` command in order to activate your cellpose environment.
 
 #### R Setup:
 1. Install the required R and Bioconductor packages:
@@ -44,7 +45,7 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
   `install.packages(c(“reticulate”, “keras”, “tensorflow”))`
 
 3. Test the ability for the packages to connect to the Python environment:
-  1. Run the following commands in R and check for errors:
+  - Run the following commands in R and check for errors:
   `library(reticulate)
   env <- conda_list()$name == "basin"
   envPath <- conda_list()[env,]$python
@@ -53,7 +54,7 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
   keras::use_condaenv(envPath, required=TRUE)
   tensorflow::use_condaenv(envPath, required=TRUE)`
   
-  2. Restart your R session and run the BASIN app from the server.R or ui.R files inside of the shinyBASIN folder.
+  - Restart your R session and run the BASIN app from the server.R or ui.R files inside of the shinyBASIN folder.
 
 ### Option 2: Package (No Python, No ML Segmentation)
 Details on the features and functionality of BASIN can be found in the BASIN
