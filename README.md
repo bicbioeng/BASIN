@@ -36,9 +36,9 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
     "shinydashboard", "shinycssloaders", "shinythemes", "shinyWidgets",
     "DT", "stringi", "ggpubr", "tcltk", "autothresholdr"))`
 
-  `if (!requireNamespace("BiocManager", quietly = TRUE))\
-    install.packages("BiocManager") #installs Bioconductor\
-    BiocManager::install("EBImage") #installs EBImage`
+  `if (!requireNamespace("BiocManager", quietly = TRUE))`\
+    `install.packages("BiocManager") #installs Bioconductor`\
+    `BiocManager::install("EBImage") #installs EBImage`
     
 2. Install the reticulate, keras, and tensorflow packages in RStudio using
 
