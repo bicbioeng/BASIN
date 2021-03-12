@@ -36,8 +36,8 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
     "shinydashboard", "shinycssloaders", "shinythemes", "shinyWidgets",
     "DT", "stringi", "ggpubr", "tcltk", "autothresholdr"))`
 
-  `if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager") #installs Bioconductor
+  `if (!requireNamespace("BiocManager", quietly = TRUE))\
+    install.packages("BiocManager") #installs Bioconductor\
     BiocManager::install("EBImage") #installs EBImage`
     
 2. Install the reticulate, keras, and tensorflow packages in RStudio using
@@ -45,7 +45,7 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
   `install.packages(c(“reticulate”, “keras”, “tensorflow”))`
 
 3. Test the ability for the packages to connect to the Python environment:
-  - Run the following commands in R and check for errors:
+  - Run the following commands in R and check for errors:\
   `library(reticulate)`\
   `env <- conda_list()$name == "basin"`\
   `envPath <- conda_list()[env,]$python`\
