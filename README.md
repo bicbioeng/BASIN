@@ -31,7 +31,8 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
 6. Once Python installation is complete, you can always run cellpose by running ` python -m cellpose ` in the Anaconda terminal. Note that any time you open a new Anaconda terminal, you will have to re-run the ` conda activate basin ` command in order to activate your cellpose environment.
 
 #### R Setup:
-1. Install the required R and Bioconductor packages:
+1. Make sure you have the latest version of R and Rstudio installed on your computer (free and open-source, available online). Rstudio is an IDE for the R programming language, and all successive steps should be ran through the Rstudio terminal.
+2. Install the required R and Bioconductor packages:
   `install.packages(c("purrr", "plyr", "shiny", "shinyBS", "shinyjs",
     "shinydashboard", "shinycssloaders", "shinythemes", "shinyWidgets",
     "DT", "stringi", "ggpubr", "tcltk", "autothresholdr"))`
@@ -40,11 +41,11 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
     `install.packages("BiocManager") #installs Bioconductor`\
     `BiocManager::install("EBImage") #installs EBImage`
     
-2. Install the reticulate, keras, and tensorflow packages in RStudio using
+3. Install the reticulate, keras, and tensorflow packages in RStudio using
 
   `install.packages(c(“reticulate”, “keras”, “tensorflow”))`
 
-3. Test the ability for the packages to connect to the Python environment:
+4. Test the ability for the packages to connect to the Python environment:
   - Run the following commands in R and check for errors:\
   `library(reticulate)`\
   `env <- conda_list()$name == "basin"`\
