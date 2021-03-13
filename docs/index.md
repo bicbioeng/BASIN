@@ -5,7 +5,7 @@
 - [BASIN-lite](basin-lite.md)
 - [BASIN-ML](basin-ml.md)
 
-[[_Sidebar.md]]
+[[tutorials.md]]
 
 #### Objective
 
