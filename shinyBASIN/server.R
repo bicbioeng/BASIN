@@ -9,8 +9,16 @@
 
 library(reticulate)
 
-basinDir <- getwd()                                                             # Allows the folder containing this script to be the default working
-reportsDir <- getwd()                                                           # directory until the user chooses his or her own directory path
+# finds the location of the BASIN directory regardless of the working directory
+this_file = gsub("--file=", "", commandArgs()[grepl("--file", commandArgs())])
+if (length(this_file) > 0){
+  wd <- paste(head(strsplit(this_file, '[/|\\]')[[1]], -1), collapse = .Platform$file.sep)
+}else{
+  wd <- dirname(rstudioapi::getSourceEditorContext()$path)
+}
+
+basinDir <- wd                                                             # Allows the folder containing this script to be the default working
+reportsDir <- getwd()                                                      # directory until the user chooses his or her own directory path
 
 # load the BASIN python environment
 env <- conda_list()$name == "cellpose"
@@ -1108,6 +1116,10 @@ shinyServer(function(input, output, session) {                                  
       extractDir <- paste0(getwd(),"/Extractor")                                # Check for existing Extractor folder and subfolders
       rawDir <- paste0(getwd(),"/Extractor/Thresh_Data",id)
       analyzeDir <- paste0(getwd(),"/Extractor/Analysis_Results")
+      maskDir <- paste0(getwd(), "/Extractor/Image_Masks")
+      redMasks <- paste0(maskDir, "/Red")
+      greenMasks <- paste0(maskDir, "/Green")
+      blueMasks <- paste0(maskDir, "/Blue")
       if(!dir.exists(extractDir)){
         dir.create(extractDir)
       }
@@ -1116,6 +1128,19 @@ shinyServer(function(input, output, session) {                                  
       }
       if(!dir.exists(analyzeDir)){
         dir.create(analyzeDir)
+      }
+      if(!dir.exists(maskDir)){
+        dir.create(maskDir)
+        dir.create(redMasks)
+        dir.create(greenMasks)
+        dir.create(blueMasks)
+      }
+      
+      # save a copy of all image masks to the output folder
+      for(i in seq_along(values$imgs.r.thresholded)){
+        writeImage(values$imgs.r.thresholded[[i]], files = file.path(redMasks,values$img.files[i]), type = "jpeg", quality = 80)
+        writeImage(values$imgs.g.thresholded[[i]], files = file.path(greenMasks,values$img.files[i]), type = "jpeg", quality = 80)
+        writeImage(values$imgs.b.thresholded[[i]], files = file.path(blueMasks, values$img.files[i]), type = "jpeg", quality = 80)
       }
       
       write.csv(ldply(req(values$features.r), .id = "filename"),                # Copy all raw data into Thresh_Data subfolder
@@ -1130,7 +1155,6 @@ shinyServer(function(input, output, session) {                                  
                 file = paste0(analyzeDir,"/meanDataTtest.csv"))
       write.csv(req(values$objectAreaResults), 
                 file = paste0(analyzeDir,"/objectAreaTtest.csv"))
-
 
       file.create("Extractor/Log.txt")                                          # Create log file with Extractor info
       log <- file("Extractor/Log.txt", open = "a+")
