@@ -1,0 +1,71 @@
+---
+title: " "
+author: " "
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<center>  
+```{r plots, echo = FALSE, warning = FALSE, out.width = "50%"}
+plot(boxplot1())
+plot(boxplot2())
+plot(boxplot3())
+plot(boxplot4())
+plot(barplot1())
+plot(barplot2())
+```
+<br>
+```{r imgs, echo=FALSE, warning = FALSE, out.width="50%"}
+# lapply(values$imgs, display)
+par(mfrow = c(2, ceiling(length(values$img.files)/2)))
+    output <- lapply(values$img.files, function(x){
+      # Logical vector for image selection
+      c <- values$img.files == x
+      # Selecting all corresponding image frames
+      selectedImg <- values$imgs[c][[1]]
+      selectedImg.r <- values$imgs.r.clrd[c][[1]]
+      selectedImg.g <- values$imgs.g.clrd[c][[1]]
+      selectedImg.b <- values$imgs.b.clrd[c][[1]]
+      selectedImg.r.th <- values$imgs.r.th[c][[1]]
+      selectedImg.g.th <- values$imgs.g.th[c][[1]]
+      selectedImg.b.th <- values$imgs.b.th[c][[1]]
+      selectedImg.r.clbl <- values$imgs.r.clrlabel[c][[1]]
+      selectedImg.g.clbl <- values$imgs.g.clrlabel[c][[1]]
+      selectedImg.b.clbl <- values$imgs.b.clrlabel[c][[1]]
+      selectedImg.r.pntd <- values$imgs.r.pntd[c][[1]]
+      selectedImg.g.pntd <- values$imgs.g.pntd[c][[1]]
+      selectedImg.b.pntd <- values$imgs.b.pntd[c][[1]]
+      # Blank canvas for formatting
+      blankSpot <- Image(matrix("white", dim(selectedImg)[1], dim(selectedImg)[2]))
+      # Formatted Image display
+        EBImage::combine(
+          blankSpot, selectedImg, blankSpot,
+          selectedImg.r, selectedImg.g, selectedImg.b,
+          selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
+          selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
+          selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
+        )
+    })
+    mapply(function(x,lbl){
+      EBImage::display(x, nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE)
+      # Vertical Labels
+      text(x = (10 + x@dim[1] + x@dim[1]/2), y = -10, label = lbl, adj = c(0.5, 0), col = "black", cex = 1)
+      text(x = -10, y = (10 + x@dim[2] + x@dim[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (20 + 2.5*x@dim[2]), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (30 + 3.5*x@dim[2]), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (40 + 4.5*x@dim[2]), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      # Horizontal Labels
+      text(x = x@dim[1]/2, y = (50 + 5*x@dim[2]),label = input$imgsRedStain, col = "black", cex = 1)
+      text(x = 10 + 1.5*x@dim[1], y = (50 + 5*x@dim[2]),label = input$imgsGreenStain, col = "black", cex = 1)
+      text(x = 20 + 2.5*x@dim[1], y = (50 + 5*x@dim[2]),label = input$imgsBlueStain, col = "black", cex = 1)
+    }, x = output, lbl = values$img.files)
+```
+<br>
+<br>
+<center>
+Report generated using BASIN Shiny app version 1.0.0. Copyright (c) 2019 The University of South Dakota. All rights reserved.
+</center>

@@ -7,8 +7,6 @@
 # images and CSV file to give the user information and hypothesis test results
 # related to those images. The user may then download a report of these results.
 
-library(reticulate)
-
 # finds the location of the BASIN directory regardless of the working directory
 this_file = gsub("--file=", "", commandArgs()[grepl("--file", commandArgs())])
 if (length(this_file) > 0){
@@ -19,15 +17,6 @@ if (length(this_file) > 0){
 
 basinDir <- wd                                                             # Allows the folder containing this script to be the default working
 reportsDir <- getwd()                                                      # directory until the user chooses his or her own directory path
-
-# load the BASIN python environment
-env <- conda_list()$name == "cellpose"
-envPath <- conda_list()[env,]$python
-envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
-reticulate::use_condaenv(envPath, required=TRUE)
-keras::use_condaenv(envPath, required=TRUE)
-tensorflow::use_condaenv(envPath, required=TRUE)
-cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","cell_segmentation_unet_model.h5"))
 
 # ensures tkwidgets show up in front-most GUI window
 tkraise(tktoplevel())
@@ -314,11 +303,6 @@ shinyServer(function(input, output, session) {                                  
   # 'EXTRACTOR' MODULE #
   ######################
   
-  model <- reactive({
-    req(input$ml.upload)
-    keras::load_model_tf(input$ml.upload$datapath)
-  })
-  
   observeEvent({input$confirmThresh}, {
     imgs <- lapply(values$img.paths, readImage)                                 # Extract image data, separate into RGB frames
     # modified function to include grayscale images (1/4/21)
@@ -357,40 +341,9 @@ shinyServer(function(input, output, session) {                                  
           })
         }
       }
-      if(input$mlThresh == "None"){
-        values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
-        values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
-        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
-      } else if(input$mlThresh == "cellpose"){
-        # creating thresholded masks using cellpose
-        write(values$img.paths,file.path(basinDir,"basinCellposeImgs.txt"))
-        py_run_file(file.path(basinDir,"cellpose_segmentation_BASIN.py"))
-        masks_r <- lapply(py$masks_r, EBImage::as.Image)
-        masks_g <- lapply(py$masks_g, EBImage::as.Image)
-        masks_b <- lapply(py$masks_b, EBImage::as.Image)
-        values$imgs.r.thresholded <- lapply(masks_r,function(x){EBImage::flop(EBImage::rotate(x,90))})
-        values$imgs.g.thresholded <- lapply(masks_g,function(x){EBImage::flop(EBImage::rotate(x,90))})
-        values$imgs.b.thresholded <- lapply(masks_b,function(x){EBImage::flop(EBImage::rotate(x,90))})
-      } else if(input$mlThresh == 'U-net'){
-        # creating segmentation masks using trained U-net
-        values$imgs.r.thresholded <- tf_unet_segmentation(unname(values$imgs.r), model=cell_segmentation_model)
-        values$imgs.g.thresholded <- tf_unet_segmentation(unname(values$imgs.g), model=cell_segmentation_model)
-        values$imgs.b.thresholded <- tf_unet_segmentation(unname(values$imgs.b), model=cell_segmentation_model)
-        # threshold results to remove low-value pixels
-        values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
-        values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
-        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
-      } else {
-        model <- model()
-        # creating segmentation masks using user-loaded model
-        values$imgs.r.thresholded <- tf_unet_segmentation(unname(values$imgs.r), model=model)
-        values$imgs.g.thresholded <- tf_unet_segmentation(unname(values$imgs.g), model=model)
-        values$imgs.b.thresholded <- tf_unet_segmentation(unname(values$imgs.b), model=model)
-        # threshold results to remove low-value pixels
-        values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
-        values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
-        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
-      }
+      values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
+      values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
+      values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold)
       
       incProgress(0.4,detail=paste("Labeling"))
       
@@ -1019,6 +972,7 @@ shinyServer(function(input, output, session) {                                  
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
+      palette = c("cornflowerblue","green3","salmon"),
       facet.by = "experiment",
       panel.labs = list(experiment = paste0(
         "E",levels(as.factor(values$objectMeanData$experiment)))),
@@ -1056,6 +1010,7 @@ shinyServer(function(input, output, session) {                                  
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
+      palette = c("cornflowerblue","green3","salmon"),
       facet.by = "experiment",
       panel.labs = list(experiment = paste0(
         "E",levels(as.factor(values$objectAreaData$experiment)))),
@@ -1831,15 +1786,6 @@ shinyServer(function(input, output, session) {                                  
       Thresholding Techniques and Quantitative Performance Evaluation. 
       <i>Journal of Electronic Imaging</i>. 2004;13(1):146-165."
       HTML(paste(line1, line2, sep = '<br/>'))
-    }
-  })
-  
-  output$mlSegmentationReference <- renderUI({
-    if(input$mlThresh == "cellpose") {
-      HTML(paste(
-        "<sup>3</sup>Stringer C, Wang T, Michaelos M and Pachitariu M 2020 Cellpose: 
-        a generalist algorithm for cellular segmentation Nat Methods 1-7.
-        https://doi.org/10.1038/s41592-020-01018-x"))
     }
   })
   
