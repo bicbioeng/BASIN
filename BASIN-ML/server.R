@@ -21,7 +21,7 @@ basinDir <- wd                                                             # All
 reportsDir <- getwd()                                                      # directory until the user chooses his or her own directory path
 
 # load the BASIN python environment
-env <- conda_list()$name == "cellpose"
+env <- conda_list()$name == "basin"
 envPath <- conda_list()[env,]$python
 envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
 reticulate::use_condaenv(envPath, required=TRUE)
