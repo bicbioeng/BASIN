@@ -6,6 +6,17 @@ Welcome to BASIN!
 Objective
 ---------
 
+In order to assist researchers with quantitative, objective analysis of experiments
+involving cell treatment and/or movement, we have developed a suite of applications
+under the BASIN Project.
+
+BASIN is a set of R packages that utilize Shiny to provide a user interface
+for statistical analysis of two-dimensional confocal microscope images. Users
+can upload two images directly or a folder of images with the help of a
+user-generated csv file, edit their experimental design, create tables and
+graphs for analysis results, and generate a fully-formatted report of their
+experiment.
+
 ------------
 Publication
 ------------
@@ -18,11 +29,13 @@ Tutorials
 Workflow
 ---------
 
+.. image:: ../BASIN-lite/www/extractor1.png
+
 -------
 Videos
 -------
 
-Video tutorials for all BASIN applications can be found at our [YouTube channel](https://www.youtube.com/channel/UCGe9s37qZSgvufQNPnAcyCw).
+Video tutorials for all BASIN applications can be found at our YouTube channel (https://www.youtube.com/channel/UCGe9s37qZSgvufQNPnAcyCw).
 
 ========
 tryBASIN
@@ -32,7 +45,7 @@ tryBASIN
 Overview
 ---------
 
-tryBASIN can be accessed through the following [shiny application](https://bicbioeng.shinyapps.io/tryBASIN/). This
+tryBASIN can be accessed through the following online application: https://bicbioeng.shinyapps.io/tryBASIN/. This
 version only takes in 2 images, but the workflow is nearly identical to the complete version and serves as a gentle tutorial to most of BASIN's features.
 
 ==========
@@ -42,6 +55,10 @@ BASIN-lite
 ---------
 Overview
 ---------
+
+BASIN-lite is the standard BASIN application. It allows users to upload an arbitrary
+amount of images, as well as partition them into as many experimental groups as
+they want.
 
 ------------
 Installation
@@ -80,6 +97,11 @@ BASIN-ML
 ---------
 Overview
 ---------
+
+BASIN-ML is a developmental package that utilizes the BASIN-lite workflow but
+in addition incorporates Python-based cell segmentation models for improved
+cell detection. We have two available models in our developmental version:
+Cellpose (#TODO: citation) and a Tensorflow-based U-Net model (#TODO: citation).
 
 ------------
 Installation
