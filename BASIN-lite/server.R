@@ -55,12 +55,14 @@ colExtract <- function(x, column){                                              
   })
 }
 
-alternative <- function(x){                                                     # Translates alternative hypothesis from simple symbols in the analysis table
-  if(stri_cmp_eq(x$alternative[[1]],"not=")){
+# translates alternative hypothesis for t.test()
+alternative <- function(x){
+  alt <- x$alternative
+  if(any(stri_cmp_eq(alt,"not="))){
     return("two.sided")
-  } else if(stri_cmp_eq(x$alternative[[1]],"<")){
+  } else if(any(stri_cmp_eq(alt,"<"))){
     return("less")
-  } else if(stri_cmp_eq(x$alternative[[1]],">")){
+  } else if(any(stri_cmp_eq(alt,">"))){
     return("greater")
   } else {
     return(NA)
@@ -254,6 +256,8 @@ shinyServer(function(input, output, session) {                                  
              Please check your file and upload again")
       }
       enable(id = "gotoExtractor")                                              # Display confirmation button for Upload module 
+      ordering <- match(values$img.files, analysisTable$filename)
+      analysisTable <- analysisTable[ordering,]
       values$analysisTable <- analysisTable
       analysisTable[,1:6]
     }
@@ -332,14 +336,13 @@ shinyServer(function(input, output, session) {                                  
             # compute threshold mask using user-selected method
             z <- mask(y, method = input$thresh.auto)
             x <- x*z
-            return(x)
           }, error = function(cond){
             values$threshFail <- TRUE
             z <- mask(y, method = "Otsu")
             x <- x*z
-            return(x)
           })
         }
+        return(x)
       }
       values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
       values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
@@ -501,15 +504,28 @@ shinyServer(function(input, output, session) {                                  
     featuresDF.b$biocondition <- paste0(featuresDF.b$biocondition,".b")
     
     values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
+    count.r <- lapply(values$features.r, function(x){
+      counts <- nrow(x)
+      if(counts == 1 && x$b.mean == 0){
+        counts <- 0
+      }
+      return(counts)
+    })                                  # Object count determined using number of rows
+    count.g <- lapply(values$features.g, function(x){
+      counts <- nrow(x)
+      if(counts == 1 && x$b.mean == 0){
+        counts <- 0
+      }
+      return(counts)
+    })
+    count.b <- lapply(values$features.b, function(x){
+      counts <- nrow(x)
+      if(counts == 1 && x$b.mean == 0){
+        counts <- 0
+      }
+      return(counts)
+    })
     
-    count.r <- lapply(values$features.r, nrow)                                  # Object count determined using number of rows
-    count.g <- lapply(values$features.g, nrow)
-    count.b <- lapply(values$features.b, nrow)
-
-    count.r <- replace(count.r, vapply(count.r, is.null, logical(1)), 0)        # Any images with 0 objects get assigned a count of 0
-    count.g <- replace(count.g, vapply(count.g, is.null, logical(1)), 0)
-    count.b <- replace(count.b, vapply(count.b, is.null, logical(1)), 0)
-
     count.r <- ldply(count.r, data.frame, .id = "biocondition")                 # Converts list into data frame for Raw Data table
     count.g <- ldply(count.g, data.frame, .id = "biocondition")
     count.b <- ldply(count.b, data.frame, .id = "biocondition")

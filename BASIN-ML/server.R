@@ -66,18 +66,19 @@ colExtract <- function(x, column){                                              
   })
 }
 
-alternative <- function(x){                                                     # Translates alternative hypothesis from simple symbols in the analysis table
-  if(stri_cmp_eq(x$alternative[[1]],"not=")){
+# translates alternative hypothesis for t.test()
+alternative <- function(x){
+  alt <- x$alternative
+  if(any(stri_cmp_eq(alt,"not="))){
     return("two.sided")
-  } else if(stri_cmp_eq(x$alternative[[1]],"<")){
+  } else if(any(stri_cmp_eq(alt,"<"))){
     return("less")
-  } else if(stri_cmp_eq(x$alternative[[1]],">")){
+  } else if(any(stri_cmp_eq(alt,">"))){
     return("greater")
   } else {
     return(NA)
   }
 }
-
 tf_unet_segmentation <- function(imgs, model){                                  # Image segmentation using TF Unet model
   dims <- model$input$shape
   # convert all images to grayscale and resize to match model input dims
@@ -549,13 +550,27 @@ shinyServer(function(input, output, session) {                                  
     
     values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
     
-    count.r <- lapply(values$features.r, nrow)                                  # Object count determined using number of rows
-    count.g <- lapply(values$features.g, nrow)
-    count.b <- lapply(values$features.b, nrow)
-
-    count.r <- replace(count.r, vapply(count.r, is.null, logical(1)), 0)        # Any images with 0 objects get assigned a count of 0
-    count.g <- replace(count.g, vapply(count.g, is.null, logical(1)), 0)
-    count.b <- replace(count.b, vapply(count.b, is.null, logical(1)), 0)
+    count.r <- lapply(values$features.r, function(x){
+      counts <- nrow(x)
+      if(counts == 1 && x$b.mean == 0){
+        counts <- 0
+      }
+      return(counts)
+    })                                  # Object count determined using number of rows
+    count.g <- lapply(values$features.g, function(x){
+      counts <- nrow(x)
+      if(counts == 1 && x$b.mean == 0){
+        counts <- 0
+      }
+      return(counts)
+    })
+    count.b <- lapply(values$features.b, function(x){
+      counts <- nrow(x)
+      if(counts == 1 && x$b.mean == 0){
+        counts <- 0
+      }
+      return(counts)
+    })
 
     count.r <- ldply(count.r, data.frame, .id = "biocondition")                 # Converts list into data frame for Raw Data table
     count.g <- ldply(count.g, data.frame, .id = "biocondition")
