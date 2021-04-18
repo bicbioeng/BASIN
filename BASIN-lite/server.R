@@ -55,9 +55,10 @@ colExtract <- function(x, column){                                              
   })
 }
 
-# translates alternative hypothesis for t.test()
+# Translates alternative hypothesis from simple symbols in the analysis table
 alternative <- function(x){
   alt <- x$alternative
+  if(all(is.na(alt))){return(NA)}
   if(any(stri_cmp_eq(alt,"not="))){
     return("two.sided")
   } else if(any(stri_cmp_eq(alt,"<"))){
@@ -211,8 +212,8 @@ shinyServer(function(input, output, session) {                                  
   
   observeEvent(input$downloadAnalysisTable, {                                   # Stat Design Table Download
     df <- data.frame(
-      "filename" = req(values$img.files), "alias" = "", "experiment" = NA, 
-      "biocondition" = NA, "alternative" = "not=")
+      "filename" = req(values$img.files), "stain" = "", "experiment" = NA, 
+      "biocondition" = NA, "alternative" = "not=", "color frame" = "red")
     values$analysisTable <- cbind(id = rownames(df), df)
     #tkraise(tktoplevel())
     wd <- tclvalue(tkchooseDirectory())
@@ -248,7 +249,15 @@ shinyServer(function(input, output, session) {                                  
       df <- input$uploadAnalysisTable
       if (is.null(df))
         return(NULL)
-      analysisTable <- read.csv(df$datapath)
+      analysisTable <- read.csv(df$datapath, stringsAsFactors = FALSE)
+      if(any(is.na(analysisTable$'color.frame'))){
+        # any NA color frame values are set automatically to red frame
+        analysisTable$'color.frame'[is.na(analysisTable$'color.frame')] <- "red"
+      }
+      if(any(is.na(analysisTable$'stain'))){
+        # any NA stains are set to blank
+        analysisTable$'stain'[is.na(analysisTable$'stain')] <- ""
+      }
       checkInput <-  values$img.files %in% analysisTable$filename               # check for correctness of csv table input using filenames
       if(!all(checkInput)){
         disable(id = "gotoExtractor")
@@ -258,6 +267,21 @@ shinyServer(function(input, output, session) {                                  
       enable(id = "gotoExtractor")                                              # Display confirmation button for Upload module 
       ordering <- match(values$img.files, analysisTable$filename)
       analysisTable <- analysisTable[ordering,]
+      # fetch color-coding for stains
+      redStain <- rep('Red Frame', length(analysisTable$filename))
+      greenStain <- rep('Green Frame', length(analysisTable$filename))
+      blueStain <- rep('Blue Frame', length(analysisTable$filename))
+      if(!is.null(analysisTable$'color.frame')){
+        red <- analysisTable$'color.frame' == 'red' & analysisTable$'stain' != ""
+        green <- analysisTable$'color.frame' == 'green' & analysisTable$'stain' != ""
+        blue <- analysisTable$'color.frame' == 'blue' & analysisTable$'stain' != ""
+        redStain[red] <- as.vector(analysisTable$'stain'[red])
+        greenStain[green] <- as.vector(analysisTable$'stain'[green])
+        blueStain[blue] <- as.vector(analysisTable$'stain'[blue])
+      }
+      values$redStain <- redStain
+      values$greenStain <- greenStain
+      values$blueStain <- blueStain
       values$analysisTable <- analysisTable
       analysisTable[,1:6]
     }
@@ -393,62 +417,114 @@ shinyServer(function(input, output, session) {                                  
       incProgress(1.0,detail=paste("Moving to Feature Extraction"))
     }) # end withProgress
 
-    featureExtract <- function(labeled, reference, stain){                      # Function to safely extract feature-data from images
-      labeledNames <- names(labeled)                                            # Get filenames for reference
+    # featureExtract <- function(labeled, reference, stain){                      # Function to safely extract feature-data from images
+    #   labeledNames <- names(labeled)                                            # Get filenames for reference
+    #   fileCount <- length(labeled)
+    #   counter <- 0
+    #   withProgress(message = 'Getting features', value = 0, {                   # Displays a progress window at the bottom right of the app letting the user know what's going on
+    #     mapply(function(l, r, s) {
+    #       tryCatch({
+    #         counter <<- counter + 1
+    #         basicFeatures <- computeFeatures.basic(x = l, ref = r)
+    #         momentFeatures <- computeFeatures.moment(x = l, ref = r)
+    #         shapeFeatures <- computeFeatures.shape(x = l)
+    #         features <- data.frame(
+    #           experiment = analysisTable$experiment[counter],
+    #           biocondition = analysisTable$biocondition[counter],
+    #           stain = s,
+    #           basicFeatures,
+    #           momentFeatures,
+    #           shapeFeatures, stringsAsFactors = FALSE)
+    #         incProgress(1/fileCount, 
+    #                     detail=paste("Image", counter, "of", fileCount))        # For withProgress: updates the bar every time a loop completes itself
+    #         return(features)
+    #       },
+    #       error = function(cond){                                               # reapply image morphology functions to problem image
+    #         if(input$thresh.auto == "cellpose"){
+    #           # compute cellpose mask for error img, use stain for correct channel
+    #           channel <- c(1,2,3)
+    #           names(channel) <- c(input$imgsRedStain,input$imgsGreenStain,input$imgsBlueStain)
+    #           mask <- as.array(py_call(py$compute_mask,r@.Data,channel[stain]))
+    #           imgThresh <- EBImage::flop(EBImage::rotate(mask,90))
+    #         } else {
+    #           imgThresh <- autothreshold(r)
+    #         }
+    #         imgLabel <- bwlabel(imgThresh)
+    #         basicFeatures <- computeFeatures.basic(imgLabel, ref = r)
+    #         # check for null features (blank images/frames)
+    #         if(is.null(basicFeatures)){
+    #           basicFeatures <- data.frame(b.mean = 0, b.sd = 0, b.mad = 0, b.q001=0, b.q005=0, b.q05=0, b.q095=0, b.q099=0)
+    #           momentFeatures <- data.frame(m.cx=0, m.cy=0, m.majoraxis=0, m.eccentricity=0, m.theta=0)
+    #           shapeFeatures <- data.frame(s.area=0, s.perimeter=0, s.radius.mean=0, s.radius.sd=0, s.radius.min=0, s.radius.max=0)
+    #         } else {
+    #           momentFeatures <- computeFeatures.moment(imgLabel, ref = r)
+    #           shapeFeatures <- computeFeatures.shape(imgLabel)
+    #         }
+    #         features <- data.frame(
+    #           experiment = values$analysisTable$experiment[counter],
+    #           biocondition = values$analysisTable$biocondition[counter],
+    #           stain = stain,
+    #           basicFeatures,
+    #           momentFeatures,
+    #           shapeFeatures, stringsAsFactors = FALSE)
+    #         incProgress(1/fileCount, 
+    #                     detail=paste("Image", counter, "of", fileCount))        # For withProgress: updates the bar every time a loop completes itself
+    #         return(features)
+    #       })
+    #     },
+    #     l = labeled, r = reference, SIMPLIFY = FALSE)
+    #   })
+    # }
+    # Function to safely extract feature-data from images
+    featureExtract <- function(labeled, reference, stain){                      
+      labeledNames <- names(labeled)                                          
       fileCount <- length(labeled)
       counter <- 0
       withProgress(message = 'Getting features', value = 0, {                   # Displays a progress window at the bottom right of the app letting the user know what's going on
-        mapply(function(l, r) {
-          tryCatch({
-            counter <<- counter + 1
-            basicFeatures <- computeFeatures.basic(x = l, ref = r)
-            momentFeatures <- computeFeatures.moment(x = l, ref = r)
-            shapeFeatures <- computeFeatures.shape(x = l)
-            features <- data.frame(
-              experiment = values$analysisTable$experiment[counter],
-              biocondition = values$analysisTable$biocondition[counter],
-              stain = stain,
-              basicFeatures,
-              momentFeatures,
-              shapeFeatures, stringsAsFactors = FALSE)
-            incProgress(1/fileCount, 
-                        detail=paste("Image", counter, "of", fileCount))        # For withProgress: updates the bar every time a loop completes itself
-            return(features)
-          },
-          error = function(cond){                                               # reapply image morphology functions to problem image
-            if(input$thresh.auto == "cellpose"){
-              # compute cellpose mask for error img, use stain for correct channel
-              channel <- c(1,2,3)
-              names(channel) <- c(input$imgsRedStain,input$imgsGreenStain,input$imgsBlueStain)
-              mask <- as.array(py_call(py$compute_mask,r@.Data,channel[stain]))
-              imgThresh <- EBImage::flop(EBImage::rotate(mask,90))
-            } else {
-              imgThresh <- autothreshold(r)
-            }
-            imgLabel <- bwlabel(imgThresh)
-            basicFeatures <- computeFeatures.basic(imgLabel, ref = r)
-            # check for null features (blank images/frames)
-            if(is.null(basicFeatures)){
-              basicFeatures <- data.frame(b.mean = 0, b.sd = 0, b.mad = 0, b.q001=0, b.q005=0, b.q05=0, b.q095=0, b.q099=0)
-              momentFeatures <- data.frame(m.cx=0, m.cy=0, m.majoraxis=0, m.eccentricity=0, m.theta=0)
-              shapeFeatures <- data.frame(s.area=0, s.perimeter=0, s.radius.mean=0, s.radius.sd=0, s.radius.min=0, s.radius.max=0)
-            } else {
-              momentFeatures <- computeFeatures.moment(imgLabel, ref = r)
-              shapeFeatures <- computeFeatures.shape(imgLabel)
-            }
-            features <- data.frame(
-              experiment = values$analysisTable$experiment[counter],
-              biocondition = values$analysisTable$biocondition[counter],
-              stain = stain,
-              basicFeatures,
-              momentFeatures,
-              shapeFeatures, stringsAsFactors = FALSE)
-            incProgress(1/fileCount, 
-                        detail=paste("Image", counter, "of", fileCount))        # For withProgress: updates the bar every time a loop completes itself
-            return(features)
-          })
+      mapply(function(l, r, s) {
+        tryCatch({
+          counter <<- counter + 1
+          basicFeatures <- computeFeatures.basic(x = l, ref = r)
+          momentFeatures <- computeFeatures.moment(x = l, ref = r)
+          shapeFeatures <- computeFeatures.shape(x = l)
+          features <- data.frame(
+            experiment = values$analysisTable$experiment[counter],
+            biocondition = values$analysisTable$biocondition[counter],
+            stain = s,
+            basicFeatures,
+            momentFeatures,
+            shapeFeatures, stringsAsFactors = FALSE)
+          incProgress(1/fileCount, 
+                      detail=paste("Image", counter, "of", fileCount))        # For withProgress: updates the bar every time a loop completes itself
+          return(features)
         },
-        l = labeled, r = reference, SIMPLIFY = FALSE)
+        # reapply image morphology functions to problem image
+        error = function(cond){                                               
+          imgThresh <- autothreshold(r)
+          imgLabel <- bwlabel(imgThresh)
+          basicFeatures <- computeFeatures.basic(imgLabel, ref = r)
+          # check for null features (blank images/frames)
+          if(is.null(basicFeatures)){
+            basicFeatures <- data.frame(b.mean = 0, b.sd = 0, b.mad = 0, b.q001=0, b.q005=0, b.q05=0, b.q095=0, b.q099=0)
+            momentFeatures <- data.frame(m.cx=0, m.cy=0, m.majoraxis=0, m.eccentricity=0, m.theta=0)
+            shapeFeatures <- data.frame(s.area=0, s.perimeter=0, s.radius.mean=0, s.radius.sd=0, s.radius.min=0, s.radius.max=0)
+          } else {
+            momentFeatures <- computeFeatures.moment(imgLabel, ref = r)
+            shapeFeatures <- computeFeatures.shape(imgLabel)
+          }
+          features <- data.frame(
+            experiment = values$analysisTable$experiment[counter],
+            biocondition = values$analysisTable$biocondition[counter],
+            stain = s,
+            basicFeatures,
+            momentFeatures,
+            shapeFeatures, stringsAsFactors = FALSE)
+          incProgress(1/fileCount, 
+                      detail=paste("Image", counter, "of", fileCount))        # For withProgress: updates the bar every time a loop completes itself
+          return(features)
+        })
+      },
+      l = labeled, r = reference, s = stain, SIMPLIFY = FALSE)
       })
     }
     
@@ -483,13 +559,13 @@ shinyServer(function(input, output, session) {                                  
     # Evaluate Features for each image's frames
     values$features.r <- featureExtract(
       req(values$imgs.r.label), reference = values$imgs.r, 
-      stain = input$imgsRedStain)
+      stain = values$redStain) #input$imgsRedStain)
     values$features.g <- featureExtract(
       req(values$imgs.g.label), reference = values$imgs.g, 
-      stain = input$imgsGreenStain)
+      stain = values$greenStain) #input$imgsGreenStain)
     values$features.b <- featureExtract(
       req(values$imgs.b.label), reference = values$imgs.b, 
-      stain = input$imgsBlueStain)
+      stain = values$blueStain) #input$imgsBlueStain)
 
     featuresDF.r <- ldply(req(values$features.r), .id = "filename")             # Convert list of feature data into data frame
     featuresDF.g <- ldply(req(values$features.g), .id = "filename")
@@ -536,7 +612,7 @@ shinyServer(function(input, output, session) {                                  
       row.names = NULL,
       filename = values$img.files,
       condition = values$analysisTable$biocondition,
-      stain = input$imgsRedStain,
+      stain = values$redStain, #input$imgsRedStain,
       sumImgIntensity = vapply(
         values$imgs, function(x) {sum(imageData(x)[,,1])}, numeric(1)),
       objCount = count.r$X..i..,
@@ -549,7 +625,7 @@ shinyServer(function(input, output, session) {                                  
       meanObjArea = vapply(
         values$features.r, function(x){ mean(x$s.area) }, numeric(1)),
       biocondition = count.r$biocondition,
-      # experiment = values$analysisTable$experiment,
+      experiment = values$analysisTable$experiment,
       stringsAsFactors = FALSE
     )
     
@@ -557,7 +633,7 @@ shinyServer(function(input, output, session) {                                  
       row.names = NULL,
       filename = values$img.files,
       condition = values$analysisTable$biocondition,
-      stain = input$imgsGreenStain,
+      stain = values$greenStain, #input$imgsGreenStain,
       sumImgIntensity = vapply(
         values$imgs, function(x) {sum(imageData(x)[,,2])}, numeric(1)),
       objCount = count.g$X..i..,
@@ -570,7 +646,7 @@ shinyServer(function(input, output, session) {                                  
       meanObjArea = vapply(
         values$features.g, function(x){ mean(x$s.area) }, numeric(1)),
       biocondition = count.g$biocondition,
-      # experiment = values$analysisTable$experiment,
+      experiment = values$analysisTable$experiment,
       stringsAsFactors = FALSE
     )
     
@@ -578,7 +654,7 @@ shinyServer(function(input, output, session) {                                  
       row.names = NULL,
       filename = values$img.files,
       condition = values$analysisTable$biocondition,
-      stain = input$imgsBlueStain,
+      stain = values$blueStain, #input$imgsBlueStain,
       sumImgIntensity = vapply(
         values$imgs, function(x) {sum(imageData(x)[,,3])}, numeric(1)),
       objCount = count.b$X..i..,
@@ -591,7 +667,7 @@ shinyServer(function(input, output, session) {                                  
       meanObjArea = vapply(
         values$features.b, function(x){ mean(x$s.area) }, numeric(1)),
       biocondition = count.b$biocondition,
-      # experiment = values$analysisTable$experiment,
+      experiment = values$analysisTable$experiment,
       stringsAsFactors = FALSE
     )
     
@@ -659,6 +735,16 @@ shinyServer(function(input, output, session) {                                  
       
       altHypothesis <- alternative(x)
       
+      # get the correct staining info
+      red <- ifelse(any(x$'color.frame' == 'red'),
+                    yes = as.vector(x$'stain'[x$'color.frame' == 'red'])[1],
+                    no = 'Red Frame')
+      green <- ifelse(any(x$'color.frame' == 'green'),
+                      yes = as.vector(x$'stain'[x$'color.frame' == 'green'])[1],
+                      no = 'Green Frame')
+      blue <- ifelse(any(x$'color.frame' == 'blue'),
+                     yes = as.vector(x$'stain'[x$'color.frame' == 'blue'])[1],
+                     no = 'Blue Frame')
       safeTest <- possibly(function(group1, group2){
         t.test(group1,group2,alternative = altHypothesis)
       }, otherwise = NA)
@@ -666,27 +752,41 @@ shinyServer(function(input, output, session) {                                  
       experiment.g.results <- safeTest(controlGroup.g, testGroup.g)
       experiment.b.results <- safeTest(controlGroup.b, testGroup.b)
       
-      result <- rbind(                                                          # Bind results as one data frame
-        redFrame = tTestToDataFrame(
-          experiment.r.results,input$imgsRedStain, altHypothesis),
-        greenFrame = tTestToDataFrame(
-          experiment.g.results,input$imgsGreenStain, altHypothesis),
-        blueFrame = tTestToDataFrame(
-          experiment.b.results,input$imgsBlueStain, altHypothesis))
+      # result <- rbind(                                                          # Bind results as one data frame
+      #   redFrame = tTestToDataFrame(
+      #     experiment.r.results,input$imgsRedStain, altHypothesis),
+      #   greenFrame = tTestToDataFrame(
+      #     experiment.g.results,input$imgsGreenStain, altHypothesis),
+      #   blueFrame = tTestToDataFrame(
+      #     experiment.b.results,input$imgsBlueStain, altHypothesis))
+      # Bind results as one data frame
+      redFrame = tTestToDataFrame(
+        experiment.r.results,red, altHypothesis)
+      redFrame['Mean Object Intensity Difference'] <- mean(controlGroup.r) - mean(testGroup.r)
+      greenFrame = tTestToDataFrame(
+        experiment.g.results,green, altHypothesis)
+      greenFrame['Mean Object Intensity Difference'] <- mean(controlGroup.g) - mean(testGroup.g)
+      blueFrame = tTestToDataFrame(
+        experiment.b.results,blue, altHypothesis)
+      blueFrame['Mean Object Intensity Difference'] <- mean(controlGroup.b) - mean(testGroup.b)
+      result <- rbind(                                                          
+        redFrame = redFrame,
+        greenFrame = greenFrame,
+        blueFrame = blueFrame)
       
 
       data <- rbind(                                                            # T-test data pre-processing for plotting
-        data.frame("mean" = controlGroup.r,stain = input$imgsRedStain, 
+        data.frame("mean" = controlGroup.r,stain = red, 
                    biocondition = "control.r"),
-        data.frame("mean" = testGroup.r,stain = input$imgsRedStain,
+        data.frame("mean" = testGroup.r,stain = red,
                    biocondition = "test.r"),
-        data.frame("mean" = controlGroup.g,stain = input$imgsGreenStain, 
+        data.frame("mean" = controlGroup.g,stain = green, 
                    biocondition = "control.g"),
-        data.frame("mean" = testGroup.g,stain = input$imgsGreenStain, 
+        data.frame("mean" = testGroup.g,stain = green, 
                    biocondition = "test.g"),
-        data.frame("mean" = controlGroup.b,stain = input$imgsBlueStain, 
+        data.frame("mean" = controlGroup.b,stain = blue, 
                    biocondition = "control.b"),
-        data.frame("mean" = testGroup.b,stain = input$imgsBlueStain, 
+        data.frame("mean" = testGroup.b,stain = blue, 
                    biocondition = "test.b"))
       
       list(data = data ,result = result)                                        # Return list of t-test control group data, test group data, and t-test results
@@ -713,7 +813,16 @@ shinyServer(function(input, output, session) {                                  
       testGroup.b <- unlist(areas.b[testGroup], use.names = FALSE)
       
       altHypothesis <- alternative(x)
-
+      # get the correct staining info
+      red <- ifelse(any(x$'color.frame' == 'red'),
+                    yes = as.vector(x$'stain'[x$'color.frame' == 'red'])[1],
+                    no = 'Red Frame')
+      green <- ifelse(any(x$'color.frame' == 'green'),
+                      yes = as.vector(x$'stain'[x$'color.frame' == 'green'])[1],
+                      no = 'Green Frame')
+      blue <- ifelse(any(x$'color.frame' == 'blue'),
+                     yes = as.vector(x$'stain'[x$'color.frame' == 'blue'])[1],
+                     no = 'Blue Frame')
       safeTest <- possibly(function(group1, group2){                            # T-test control vs test biocondition
         t.test(group1,group2,alternative = altHypothesis)
       }, otherwise = NA)
@@ -721,26 +830,41 @@ shinyServer(function(input, output, session) {                                  
       experiment.g.results <- safeTest(controlGroup.g, testGroup.g)
       experiment.b.results <- safeTest(controlGroup.b, testGroup.b)
        
-      result <- rbind(                                                          # Bind results as one data frame
-        redFrame = tTestToDataFrame(
-          experiment.r.results,input$imgsRedStain,altHypothesis),
-        greenFrame = tTestToDataFrame(
-          experiment.g.results,input$imgsGreenStain,altHypothesis),
-        blueFrame = tTestToDataFrame(
-          experiment.b.results,input$imgsBlueStain,altHypothesis))
+      # result <- rbind(                                                          # Bind results as one data frame
+      #   redFrame = tTestToDataFrame(
+      #     experiment.r.results,input$imgsRedStain,altHypothesis),
+      #   greenFrame = tTestToDataFrame(
+      #     experiment.g.results,input$imgsGreenStain,altHypothesis),
+      #   blueFrame = tTestToDataFrame(
+      #     experiment.b.results,input$imgsBlueStain,altHypothesis))
+      # Bind results as one data frame
+      redFrame = tTestToDataFrame(
+        experiment.r.results,red, altHypothesis)
+      redFrame['Mean Object Area Difference'] <- mean(controlGroup.r) - mean(testGroup.r)
+      greenFrame = tTestToDataFrame(
+        experiment.g.results,green, altHypothesis)
+      greenFrame['Mean Object Area Difference'] <- mean(controlGroup.g) - mean(testGroup.g)
+      blueFrame = tTestToDataFrame(
+        experiment.b.results,blue, altHypothesis)
+      blueFrame['Mean Object Area Difference'] <- mean(controlGroup.b) - mean(testGroup.b)
+      result <- rbind(                                                          
+        redFrame = redFrame,
+        greenFrame = greenFrame,
+        blueFrame = blueFrame)
       
-      data <- rbind(                                                            # T-test data pre-processing for plotting
-        data.frame("area" = controlGroup.r,stain = input$imgsRedStain, 
+      # T-test data pre-processing for plotting
+      data <- rbind(                                                            
+        data.frame("area" = controlGroup.r,stain = red, 
                    biocondition = "control.r"),
-        data.frame("area" = testGroup.r,stain = input$imgsRedStain,
+        data.frame("area" = testGroup.r,stain = red,
                    biocondition = "test.r"),
-        data.frame("area" = controlGroup.g,stain = input$imgsGreenStain, 
+        data.frame("area" = controlGroup.g,stain = green, 
                    biocondition = "control.g"),
-        data.frame("area" = testGroup.g,stain = input$imgsGreenStain, 
+        data.frame("area" = testGroup.g,stain = green, 
                    biocondition = "test.g"),
-        data.frame("area" = controlGroup.b,stain = input$imgsBlueStain, 
+        data.frame("area" = controlGroup.b,stain = blue, 
                    biocondition = "control.b"),
-        data.frame("area" = testGroup.b,stain = input$imgsBlueStain, 
+        data.frame("area" = testGroup.b,stain = blue, 
                    biocondition = "test.b"))
       
       list(data = data, result = result)                                        # Return list of t-test control group data, test group data, and t-test results
@@ -815,7 +939,7 @@ shinyServer(function(input, output, session) {                                  
       y = "b.mean",
       combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       title = "Boxplot 3. Image-Level Object Mean Intensities",
       xlab = "",
       ylab = "Intensity (0-1 grayscale)",
@@ -833,7 +957,7 @@ shinyServer(function(input, output, session) {                                  
       y = "s.area",
       combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       title = "Boxplot 4. Image-Level Object Areas",
       xlab = "",
       ylab = "Area (pixels)",
@@ -851,7 +975,7 @@ shinyServer(function(input, output, session) {                                  
       y = "b.mean",
       # combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       title = "Boxplot 1. Objects' Mean Intensities",
       xlab = "",
       ylab = "Intensity (0-1 grayscale)",
@@ -873,7 +997,7 @@ shinyServer(function(input, output, session) {                                  
       y = "s.area",
       # combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       title = "Boxplot 2. Object Areas",
       subtitle = "Outliers not shown",
       xlab = "",
@@ -943,7 +1067,7 @@ shinyServer(function(input, output, session) {                                  
       combine = FALSE,
       merge = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       title = "Barplot 1. Sum Object Intensities",
       subtitle = "post-thresholded",
       # add = "mean_se",
@@ -966,7 +1090,7 @@ shinyServer(function(input, output, session) {                                  
       combine = FALSE,
       merge = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       title = "Barplot 2. Object Counts",
       subtitle = "post-thresholded, all objects included",
       # add = "mean_se",
@@ -988,7 +1112,7 @@ shinyServer(function(input, output, session) {                                  
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       facet.by = "experiment",
       panel.labs = list(experiment = paste0(
         "E",levels(as.factor(values$objectMeanData$experiment)))),
@@ -1026,7 +1150,7 @@ shinyServer(function(input, output, session) {                                  
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      #palette = c("cornflowerblue","green3","salmon"),
       facet.by = "experiment",
       panel.labs = list(experiment = paste0(
         "E",levels(as.factor(values$objectAreaData$experiment)))),
