@@ -1,5 +1,0 @@
-## BASIN-lite
-
-#### Overview
-
-#### Installation

@@ -1,0 +1,64 @@
+---
+title: " "
+author: " "
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<center>  
+```{r plots, echo = FALSE, out.width = "50%"}
+plot(boxplot1())
+plot(boxplot2())
+plot(boxplot3())
+plot(boxplot4())
+plot(barplot1())
+plot(barplot2())
+```
+<br>
+```{r imgs, echo = FALSE, out.width="50%"}
+# Image 1
+blankSpot <- Image(matrix("white", dim(values$img1)[1], dim(values$img1)[2]))
+    EBImage::display(
+      EBImage::combine(
+        blankSpot, values$img1, blankSpot,
+        values$img1.r, values$img1.g, values$img1.b, 
+        values$img1.r.th, values$img1.g.th, values$img1.b.th, 
+        values$img1.r.clbl, values$img1.g.clbl, values$img1.b.clbl, 
+        values$img1.r.pntd, values$img1.g.pntd, values$img1.b.pntd
+      ), nx = 3, spacing = 10, margin = c(10,60), method = "raster", all = TRUE
+    )
+    text(x = (10 + dim(values$img1)[1] + dim(values$img1)[1]/2), y = -30, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
+    text(x = -10, y = (10 + dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (20 + 2*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (30 + 3*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (40 + 4*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    
+# Image 2
+blankSpot <- Image(matrix("white", dim(values$img2)[1], dim(values$img2)[2]))
+    EBImage::display(
+      EBImage::combine(
+        blankSpot, values$img2, blankSpot,
+        values$img2.r, values$img2.g, values$img2.b, 
+        values$img2.r.th, values$img2.g.th, values$img2.b.th, 
+        values$img2.r.clbl, values$img2.g.clbl, values$img2.b.clbl, 
+        values$img2.r.pntd, values$img2.g.pntd, values$img2.b.pntd
+      ), nx = 3, spacing = 10, margin = c(10,50), method = "raster", all = TRUE 
+    )
+    text(x = (10 + dim(values$img2)[1] + dim(values$img2)[1]/2), y = -30, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
+    text(x = -10, y = (10 + dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (20 + 2*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (30 + 3*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (40 + 4*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+# display({img1.all.seq()})s
+# display(pubImages(), method = "raster", all = TRUE, nx = req(input$imgPerRow), spacing = req(input$imgSpacing), margin = req(input$imgMargin), bg = "white")
+# lapply(values$imgs, display)
+```
+<br>
+<br>
+<center>
+Report generated using BASIN Shiny app version 1.0.0. Copyright (c) 2019 The University of South Dakota. All rights reserved.
+</center>
