@@ -4,7 +4,7 @@ for statistical analysis of two-dimensional confocal microscope images. Users
 can upload two images directly or a folder of images with the help of a
 user-generated csv file, edit their experimental design, create tables and
 graphs for analysis results, and generate a fully-formatted report of their
-experiment.
+experiment. For more information on BASIN, check out our documentation site[https://basin-v10.readthedocs.io/en/latest/]. For tutorials on the BASIN workflow and running the application, check out the playlists on our YouTube channel[https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh].
 
 ## BASIN Overview and Quick Tutorial
 A simplified version of BASIN is available through shinyApps at [http://bicbioeng.shinyapps.io/tryBASIN](http://bicbioeng.shinyapps.io/tryBASIN). This
@@ -40,7 +40,7 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
   `if (!requireNamespace("BiocManager", quietly = TRUE))`\
     `install.packages("BiocManager") #installs Bioconductor`\
     `BiocManager::install("EBImage") #installs EBImage`
-    
+
 3. Install the reticulate, keras, and tensorflow packages in RStudio using
 
   `install.packages(c(“reticulate”, “keras”, “tensorflow”))`
@@ -54,7 +54,7 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
   `reticulate::use_condaenv(envPath, required=TRUE)`\
   `keras::use_condaenv(envPath, required=TRUE)`\
   `tensorflow::use_condaenv(envPath, required=TRUE)`
-  
+
   - Restart your R session and run the BASIN app from the server.R or ui.R files inside of the shinyBASIN folder.
 
 ### Option 2: Package (No Python, No ML Segmentation)

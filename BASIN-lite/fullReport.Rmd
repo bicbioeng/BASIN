@@ -1,27 +1,90 @@
 ---
-title: " "
-author: " "
+title: "BASIN Report for Analysis Session `r format(Sys.time(), '%m-%d-%Y-%H%M%S')`"
+subtitle: "`r reportTitle()`"
+author: "`r reportAuthor()`"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
 ---
+**Cite this analysis**: Tim Hartman. et al., BASIN- a workflow for objective statistical analysis of bio-image dataset, CSBJ, 2021
+<br>
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+num_images <- length(values$img.files)
 ```
 
-<center>  
-```{r plots, echo = FALSE, warning = FALSE, out.width = "50%"}
-plot(boxplot1())
-plot(boxplot2())
-plot(boxplot3())
-plot(boxplot4())
-plot(barplot1())
-plot(barplot2())
+# Contents
+1. [Introduction](#introduction)
+2. [Upload](#upload)
+3. [Extraction & Pre-processing](#extraction)
+4. [Analysis Results](#analysis-results)
+5. [References](#references)
+6. [Appendix A: Data Analysis Log](#appendix-a:-data-analysis-log)
+
+# Introduction
+```{r figure, echo=FALSE}
+knitr::include_graphics(file.path(basinDir, 'www','figure1.png'))
 ```
 <br>
-```{r imgs, echo=FALSE, warning = FALSE, out.width="50%"}
-# lapply(values$imgs, display)
-par(mfrow = c(2, ceiling(length(values$img.files)/2)))
+<br>
+The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts object feature data and statistics from fluorescent micrographs. The user uploads images plus a custom analysis table which contains image and experiment information. The user then chooses the desired threshold method for each color frame and runs the analyses for each image. BASIN runs the analyses and returns graphs and t-test results which the user may then incorporate in his or her paper.
+<br>
+
+# Upload
+`r num_images` images were uploaded in this session:
+```{r images, warning=FALSE, echo = FALSE}
+    # Format a plotting grid of sufficient size, then plot all images
+    par(mfrow=c(ceiling(sqrt(length(values$imgs))),
+              ceiling(sqrt(length(values$imgs)))))
+    c <- 1
+    while(c<=length(values$img.files)){
+      img <- values$imgs[[c]]
+      name <- values$img.files[[c]]
+      EBImage::display(img, method = "raster", margin = c(50,30), spacing = 50)
+      text(x = img@dim[1]/2, y = img@dim[2]+15, label = name, cex = 1.25)
+      c <- c+1
+    }
+```
+<br>
+
+# Extraction
+```{r extraction, warning=FALSE, echo=FALSE}
+    line1 <- paste0(
+      "1. Image frames were thresholded using the following method: ", 
+      input$thresh.auto, " for ", input$imgsRedStain, " stain, ",
+      input$imgsGreenStain, " stain, and ", input$imgsBlueStain,  " stain.")
+    line2 <- paste(
+      "2. Images were grouped into", length(values$groupedExperimentTable),
+      " experimental group(s) and split by biocondition - 'control' or 'test' 
+      - for statistical analysis:")
+    line3 <- ""
+    for(exp in values$groupedExperimentTable){
+      line3 <- c(line3,paste0("    Experimental Group ",exp$experiment[1],": ",exp$filename, 
+                              " with the biocondition ",exp$biocondition)
+                 )
+    }
+    line4 <- paste0("<br>Staining Info: ")
+    line5 <- paste0(
+      "  a. ", input$imgsRedStain, ": ", input$r.intensity.altHypothesis, 
+      " for mean intensity and ", input$r.area.altHypothesis, " for area")
+    line6 <- paste0(
+      "  b. ", input$imgsGreenStain, ": ", input$g.intensity.altHypothesis, 
+      " for mean intensity and ", input$g.area.altHypothesis, " for area")
+    line7 <- paste0(
+      "  c. ", input$imgsBlueStain, ": ", input$b.intensity.altHypothesis, 
+      " for mean intensity and ", input$b.area.altHypothesis, " for area") 
+    HTML(paste(
+      c(line1, line2, line3, line4, line5, line6, line7),collapse = '<br/>'))
+```
+<br>
+
+<center> All Images Extraction Sequences
+```{r imgs, echo=FALSE, warning = FALSE, out.width="100%"}
+  # lapply(values$imgs, display)
+  par(mfrow = c(2, ceiling(length(values$img.files)/2)))
     output <- lapply(values$img.files, function(x){
       # Logical vector for image selection
       c <- values$img.files == x
@@ -41,17 +104,19 @@ par(mfrow = c(2, ceiling(length(values$img.files)/2)))
       selectedImg.b.pntd <- values$imgs.b.pntd[c][[1]]
       # Blank canvas for formatting
       blankSpot <- Image(matrix("white", dim(selectedImg)[1], dim(selectedImg)[2]))
-      # Formatted Image display
-        EBImage::combine(
+      # Formatted Image 
+        tryCatch({EBImage::combine(
           blankSpot, selectedImg, blankSpot,
           selectedImg.r, selectedImg.g, selectedImg.b,
           selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
           selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
           selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
-        )
+        )}, error = function(cond){
+          blankSpot
+        })
     })
-    mapply(function(x,lbl){
-      EBImage::display(x, nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE)
+    f <- mapply(function(x,lbl){
+      EBImage::display(x, nx = 3, spacing = 10, margin = c(40,120), method = "raster", all = TRUE)
       # Vertical Labels
       text(x = (10 + x@dim[1] + x@dim[1]/2), y = -10, label = lbl, adj = c(0.5, 0), col = "black", cex = 1)
       text(x = -10, y = (10 + x@dim[2] + x@dim[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
@@ -59,13 +124,227 @@ par(mfrow = c(2, ceiling(length(values$img.files)/2)))
       text(x = -10, y = (30 + 3.5*x@dim[2]), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
       text(x = -10, y = (40 + 4.5*x@dim[2]), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
       # Horizontal Labels
-      text(x = x@dim[1]/2, y = (50 + 5*x@dim[2]),label = input$imgsRedStain, col = "black", cex = 1)
-      text(x = 10 + 1.5*x@dim[1], y = (50 + 5*x@dim[2]),label = input$imgsGreenStain, col = "black", cex = 1)
-      text(x = 20 + 2.5*x@dim[1], y = (50 + 5*x@dim[2]),label = input$imgsBlueStain, col = "black", cex = 1)
+      text(x = x@dim[1]/2, y = (105 + 5*x@dim[2]),label = input$imgsRedStain, col = "black", cex = 1)
+      text(x = 10 + 1.5*x@dim[1], y = (105 + 5*x@dim[2]),label = input$imgsGreenStain, col = "black", cex = 1)
+      text(x = 20 + 2.5*x@dim[1], y = (105 + 5*x@dim[2]),label = input$imgsBlueStain, col = "black", cex = 1)
     }, x = output, lbl = values$img.files)
+    s <- " "
+    
 ```
 <br>
+
+Raw Image Data 
+```{r plots, echo = FALSE, warning = FALSE, out.width = "100%"}
+plot(barplot1())
+plot(barplot2())
+plot(boxplot1())
+plot(boxplot2())
+```
+<br>
+
+</center>
+
+# Analysis Results
+```{r difference analysis, echo = FALSE, warning = FALSE}
+knitr::kable(values$differenceData, caption = 'Computed differences in net image intensity and object counts between bioconditions grouped by experiment.')
+```
+```{r mean analysis, echo = FALSE, warning = FALSE}
+knitr::kable(values$objectMeanResults, caption = 'Results from Welch\'s T-test on detected mean object intensity across experiment and biocondition.')
+plot(boxplot3())
+```
+```{r area analysis, echo = FALSE, warning = FALSE}
+knitr::kable(values$objectAreaResults, caption = 'Results from Welch\'s T-test on detected object surface area across experiment and biocondition.')
+plot(boxplot4())
+```
+<br>
+
+# References
+[1] Yihui Xie, Joe Cheng and Xianying Tan (2019). DT: A Wrapper of the 
+JavaScript Library 'DataTables'. R package version 0.7. 
+https://CRAN.R-project.org/package=DT
+<br>
+[2] Gregoire Pau, Florian Fuchs, Oleg Sklyar, Michael Boutros, and 
+Wolfgang Huber (2010): EBImage - an R package for image processing with 
+applications to cellular phenotypes. Bioinformatics, 26(7), pp. 979-981, 
+10.1093/bioinformatics/btq046
+<br>
+[3] H. Wickham. ggplot2: Elegant Graphics for Data Analysis. 
+Springer-Verlag New York, 2016. 
+<br>
+[4] Alboukadel Kassambara (2019). ggpubr: 'ggplot2' Based Publication 
+Ready Plots. R package version 0.2.1. 
+https://CRAN.R-project.org/package=ggpubr 
+br>
+"[5] Hadley Wickham (2011). The Split-Apply-Combine Strategy for Data 
+Analysis. Journal of Statistical Software, 40(1), 1-29. URL 
+http://www.jstatsoft.org/v40/i01/. 
+<br>
+[6] Winston Chang, Joe Cheng, JJ Allaire, Yihui Xie and Jonathan 
+McPherson (2019). shiny: Web Application Framework for R. R package 
+version 1.3.2. https://CRAN.R-project.org/package=shiny 
+<br>
+[7] Eric Bailey (2015). shinyBS: Twitter Bootstrap Components for 
+Shiny. R package version 0.61. 
+https://CRAN.R-project.org/package=shinyBS 
+<br>
+[8] Andras Sali (2017). shinycssloaders: Add CSS Loading Animations to 
+'shiny' Outputs. R package version 0.2.0. 
+https://CRAN.R-project.org/package=shinycssloaders 
+<br>
+[9] Winston Chang and Barbara Borges Ribeiro (2018). shinydashboard: 
+Create Dashboards with 'Shiny'. R package version 0.7.1. 
+https://CRAN.R-project.org/package=shinydashboard 
+<br>
+[10] Winston Chang (2018). shinythemes: Themes for Shiny. R package 
+version 1.1.2. https://CRAN.R-project.org/package=shinythemes
+<br>
+[11] Victor Perrier, Fanny Meyer and David Granjon (2019). 
+shinyWidgets: Custom Inputs Widgets for Shiny. R package version 0.4.9. 
+https://CRAN.R-project.org/package=shinyWidgets
+<br>
+[12] Gagolewski M. and others (2019). R package stringi: Character 
+string processing facilities. 
+http://www.gagolewski.com/software/stringi/.
+<br>
+[13] Hadley Wickham (2007). Reshaping Data with the reshape Package. 
+Journal of Statistical Software, 21(12), 1-20. URL
+http://www.jstatsoft.org/v21/i12/.
+<br>
+[14] R Core Team (2019). R: A language and environment for statistical 
+computing. R Foundation for Statistical Computing, Vienna, Austria. 
+URL https://www.R-project.org/.
+<br>
+[15] Baptiste Auguie (2017). gridExtra: Miscellaneous Functions for 
+'Grid' Graphics. R package version 2.3.
+https://CRAN.R-project.org/package=gridExtra
+<br>
+```{r references, echo = FALSE}
+if(input$thresh.auto == "IJDefault") {
+      HTML(paste(
+        "[16] Ridler TW, Calvard S. Picture thresholding using an 
+        iterative selection method. <i>IEEE Transactions on Systems, Man, 
+        and Cybernetics</i>. 1978;8:630-632. doi:10.1109/TSMC.1978.4310039"))
+    } else if(input$thresh.auto == "Huang") {
+      HTML(paste(
+        "[16] Huang L-K, Wang M-JJ. Image thresholding by minimizing 
+        the measure of fuzziness. <i>Pattern Recognition</i>. 1995;18(1):41-51. 
+        doi:10.1016/0031-3203(94)E0043-K"))
+    } else if(input$thresh.auto == "Huang2") {
+      HTML(paste(
+        "[16] Landini G. Auto threshold. ImageJ website. 
+        https://imagej.net/Auto_Threshold#Default. April 29, 2017. Accessed 
+        December 23, 2019."))
+    } else if(input$thresh.auto == "Intermodes") {
+      HTML(paste(
+        "[16] Prewitt JMS, Mendelsohn ML. The analysis of cell images. 
+        <i>Annals of the New York Academy of Sciences</i>. 
+        1966;128:1035-1053."))
+    } else if(input$thresh.auto == "IsoData") {
+      HTML(paste(
+        "[16] Ridler TW, Calvard S. Picture thresholding using an 
+        iterative selection method. <i>IEEE Transactions on Systems, Man, 
+        and Cybernetics</i>. 1978;8:630-632. doi:10.1109/TSMC.1978.4310039"))
+    } else if(input$thresh.auto == "Li") {
+      HTML(paste(
+        "[16] Li CH, Tam PKS. An iterative algorithm for minimum cross 
+        entropy thresholding. <i>Pattern Recognition Letters</i>. 1998;18(8):
+        771-776. doi:10.1016/S0167-8655(98)00057-9"))
+    } else if(input$thresh.auto == "MaxEntropy") {
+      HTML(paste(
+        "[16] Kapur JN, Sahoo PK, Wong ACK. A new method for gray-level 
+        picture thresholding using the entropy of the histogram. <i>Graphical 
+        Models and Image Processing</i>. 1985;29(3):273-285. doi:10.1016/0734-
+        189X(85)90125-2"))
+    } else if(input$thresh.auto == "Mean") {
+      HTML(paste(
+        "[16] Glasbey CA. An analysis of histogram-based thresholding 
+        algorithms. <i>CVGIP: Graphical Models and Image Processing</i>. 
+        1993;55:532-537. doi:10.1006/cgip.1993.1040"))
+    } else if(input$thresh.auto == "MinErrorI") {
+      HTML(paste(
+        "[16] Kittler J, Illingworth J. Minimum error thresholding. 
+        <i>Pattern Recognition</i>. 1986;19:41-47. doi:10.1016/0031-3203(86)
+        90030-0"))
+    } else if(input$thresh.auto == "Minimum") {
+      HTML(paste(
+        "[16] Prewitt JMS, Mendelsohn ML. The analysis of cell images. 
+        <i>Annals of the New York Academy of Sciences</i>. 1966;128:1035-1053."
+        ))
+    } else if(input$thresh.auto == "Moments") {
+      HTML(paste(
+        "[16] Tsai W. Moment-preserving thresholding: a new approach. 
+        <i>Computer Vision, Graphics, and Image Processing</i>. 1985;29:377-
+        393."))
+    } else if(input$thresh.auto == "Otsu") {
+      HTML(paste(
+        "[16] Otsu N. A threshold selection method from gray-level 
+        histograms. <i>IEEE Transactions on Systems, Man, and Cybernetics</i>. 
+        1979;9:62-66. doi:10.1109/TSMC.1979.4310076"))
+    } else if(input$thresh.auto == "Percentile") {
+      HTML(paste(
+        "[16] Doyle W. Operation useful for similarity-invariant pattern 
+        recognition. <i>Journal of the Association for Computing Machinery</i>. 
+        1962;9:259-267. doi:10.1145/321119.321123"))
+    } else if(input$thresh.auto == "RenyiEntropy") {
+      HTML(paste(
+        "[16] Kapur JN, Sahoo PK, Wong ACK. A new method for gray-level 
+        picture thresholding using the entropy of the histogram. <i>CVGIP: 
+        Graphical Models and Image Processing</i>. 1985;29(3):273-285. doi:10.
+        1016/0734-189X(85)90125-2"))
+    } else if(input$thresh.auto == "Shanbhag") {
+      HTML(paste(
+        "[16] Shanbhag AG. Utilization of information measure as a 
+        means of image thresholding. <i>CVGIP: Graphical Models and Image 
+        Processing</i>. 1994;56(5):414-419. doi:10.1006/cgip.1994.1037"))
+    } else if(input$thresh.auto == "Triangle") {
+      HTML(paste(
+        "[16] Zack GW, Rogers WE, Latt SA. Automatic measurement 
+        of sister chromatid exchange frequency. <i>Journal of Histochemistry 
+        and Cytochemistry</i>. 1977;25(7):741-753. doi:10.1177/25.7.70454"))
+    } else if(input$thresh.auto == "Yen") {
+      line1 <- "[16] Yen JC, Chang FJ, Chang S. A New Criterion for 
+      Automatic Multilevel Thresholding. <i>IEEE Transactions on Image 
+      Processing</i>. 1995;4(3):370-378. doi:10.1109/83.366472"
+      line2 <- "[17] Sezgin M, Sankur B. Survey over Image 
+      Thresholding Techniques and Quantitative Performance Evaluation. 
+      <i>Journal of Electronic Imaging</i>. 2004;13(1):146-165."
+      HTML(paste(line1, line2, sep = '<br/>'))
+    }
+```
+<br>
+
+# Appendix A: Data Analysis Log
+```{r appendix, echo = FALSE}
+cat(paste0("New session started using local user ", Sys.getenv("USER")))
+if(input$chooseProjDir){
+  cat(paste0("Session folder chosen: '", req(values$projDir), "'"))
+}
+cat(paste("User uploaded", length(values$img.files), "image(s) recognized by BASIN"))
+if(input$downloadAnalysisTable){
+  cat(paste("User downloaded the analysis table template"))
+}
+cat(paste0("User uploaded a CSV file with name '", paste(input$uploadAnalysisTable$name), "'"))
+cat(paste("EBImage package read", length(values$imgs), " local image(s)"))
+cat(paste("EBImage package split", length(values$imgs), 
+        "local image(s) into separate frames;", length(values$imgs.r), "red,", 
+        length(values$imgs.g), "green, and", length(values$imgs.b), 
+        "blue frames retrieved"))
+cat(paste("Base package created a metadata table for use in Viewer and Reporter"))
+cat(paste("EBImage package began reactive thresholding and object labeling for",
+        length(values$imgs.r.label), "red,", length(values$imgs.g.label), 
+        "green, and", length(values$imgs.b.label), "blue frames"))
+cat(paste("EBImage package began reactive object feature extraction for",
+        length(values$features.r), "red,", length(values$features.g), 
+        "green, and", length(values$features.b), "blue frames"))
+cat(paste("Base package formed feature data tables for use by ggplot package. Object intensity and area boxplots ready to view in Extractor."))
+if(input$chooseProjDir){
+  cat(paste("Folder created in user's chosen directory:", paste(values$outputName), 
+        ". An 'Upload' subfolder and Log.txt was created. The log file was updated with uploaded image filenames."))
+}
+cat(paste("User chose the following thresholding method: ", input$thresh.auto, ". Extractor subfolder was created which contains pre-processing data for RGB frames. Log file was updated with extraction parameters."))
+cat(paste("Analyses run based on Extractor parameters and uploaded analysis table. An 'Analysis_Results' subfolder was created within Extractor folder; the folder contains the uploaded analysis table and t-test results. The log was updated with analysis information. Plots and t-test results ready to view."))
+```
 <br>
 <center>
-Report generated using BASIN Shiny app version 1.0.0. Copyright (c) 2019 The University of South Dakota. All rights reserved.
+**Notice:** Report generated using BASIN Shiny app version 1.0.0. Copyright (c) 2019 Bioinformatics and Computational Bioengineering Group (BiCBioEng), and The University of South Dakota. All rights reserved. For more information, visit the BASIN project at [https://basin-v10.readthedocs.io/en/latest/#](https://basin-v10.readthedocs.io/en/latest/#) or see our YouTube tutorials at [https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh](https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh).
 </center>

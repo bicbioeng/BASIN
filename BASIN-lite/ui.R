@@ -115,6 +115,9 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           conditionalPanel("input.confirmThresh", icon("fas fa-check"))),       # Gives user a checkmark indicating that the button was pressed
           textOutput("threshMethodResult"),
           hr(),
+          uiOutput("objectAreaThresholding"),
+          checkboxInput("removeGraphOutliers", label = "Show Outliers in Graphs"),
+          hr(),
           actionButton(inputId = "previewBoxplots", width = "100%",             # Opens a popup window
                        label = "Boxplots & Summary"),
           hr(),
@@ -149,6 +152,8 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                 withSpinner(plotOutput(outputId="resultPlot2", height=400))),   # A group of boxplots for object area data 
               bsCollapsePanel(
                 style = "warning", title = "2. Stat Results Table",
+                h5("Net Intensity and Object Count Differences"),
+                tableOutput(outputId = "differenceTable"),
                 h5("Mean Object Intensity T-test Results"),
                 tableOutput(outputId = "meantTestTable"),
                 h5("Object Area T-test Results"),
@@ -302,6 +307,8 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
             style = "position: relative; top: 0; width: 100%"),
     radioButtons('format', 'Document format', c('HTML', 'PDF', 'Word'),         # Lets the user choose which format in which to download the full report
                  inline = TRUE, selected = 'HTML'),
+    textInput("reportAuthor", label = "Enter author name(s) for the analysis report."),
+    textInput("reportTitle", label = "Enter a project title for your analysis report."),
     downloadButton(outputId = "downloadFullReport", label = "Generate Report"), # Downloads the full report to a local, user-specified folder
     br(),
     "Note that it may take up to a few minutes to generate the full report 
