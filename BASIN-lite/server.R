@@ -186,7 +186,7 @@ shinyServer(function(input, output, session) {                                  
       bsCollapse(open = "Statistical Test Design", 
         bsCollapsePanel(
           style = "primary", title = "Statistical Test Design",
-          h4("(Optional) Enter names of red, green, and/or blue stains:"),
+          h4("(Optional) Enter names for your red, green, and blue frames to change default visual display:"),
           splitLayout(                       
             textInput(                                                          # These textInput boxes allow the user to customize the RGB frame names for their convenience
               inputId="imgsRedStain", label="Red stain:", value="Red"),         
@@ -234,26 +234,6 @@ shinyServer(function(input, output, session) {                                  
         row.names = FALSE)
     }
   })
-  
-
-  # observeEvent(input$uploadAnalysisTable, {                                   # Table Upload
-  #   output$analysisTable <- renderDT(expr = {
-  #     df <- input$uploadAnalysisTable
-  #     if (is.null(df))
-  #       return(NULL)
-  #     analysisTable <- read.csv(df$datapath)
-  #     checkInput <-  values$img.files %in% analysisTable$filename             # check for correctness of csv table input using filenames
-  #     print(checkInput)
-  #     if(!all(checkInput)){
-  #       disable(id = "gotoExtractor")
-  #       stop("Improper stat design CSV uploaded. Please check your file and upload again")
-  #     }
-  #     enable(id = "gotoExtractor")                    # Display confirmation button for Upload module 
-  #     values$analysisTable <- analysisTable
-  #     analysisTable
-  #   },
-  #   editable = FALSE, selection = 'none', rownames = FALSE)
-  # })
 
   observeEvent(input$uploadAnalysisTable, {                                     # Table Upload
     output$analysisTable <- renderTable(expr = {
@@ -371,7 +351,7 @@ shinyServer(function(input, output, session) {                                  
 
     withProgress(message = 'Image Pre-processing', value = 0, {       # Visual Updates for 
       values$threshFail <- FALSE
-      incProgress(0.2,detail=paste("Thresholding"))
+      incProgress(0.25,detail=paste("Thresholding"))
       # thresholding with various masking algorithms
       autothreshold <- function(x) {
         y <- x*(2^16-1)
@@ -392,7 +372,7 @@ shinyServer(function(input, output, session) {                                  
       values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
       values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold)
       
-      incProgress(0.4,detail=paste("Labeling"))
+      incProgress(0.5,detail=paste("Labeling"))
       
       values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
       values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
@@ -406,33 +386,17 @@ shinyServer(function(input, output, session) {                                  
       values$imgs.g.clrlabel <- lapply(values$imgs.g.label, colorLabels)
       values$imgs.b.clrlabel <- lapply(values$imgs.b.label, colorLabels)
       
-      incProgress(0.6,detail=paste("Coloring Individual Stains"))
-      
-      values$imgs.r.clrd <- lapply(values$imgs.r, EBImage::channel, "asred")
-      values$imgs.g.clrd <- lapply(values$imgs.g, EBImage::channel, "asgreen")
-      values$imgs.b.clrd <- lapply(values$imgs.b, EBImage::channel, "asblue")
-      names(values$imgs.r.clrd) <- values$img.files
-      names(values$imgs.g.clrd) <- values$img.files
-      names(values$imgs.b.clrd) <- values$img.files
-      
-      values$imgs.r.th <- lapply(
-        values$imgs.r.thresholded, EBImage::channel, "asred")
-      values$imgs.g.th <- lapply(
-        values$imgs.g.thresholded, EBImage::channel, "asgreen")
-      values$imgs.b.th <- lapply(
-        values$imgs.b.thresholded, EBImage::channel, "asblue")
-      
-      incProgress(0.8,detail=paste("Re-Coloring Objects"))
-      
+      incProgress(0.75,detail=paste("Re-Coloring Objects"))
+
       values$imgs.r.pntd <- mapply(function(x,tgt){
-        paintObjects(x,tgt,col = "yellow")
-      }, x = values$imgs.r.label, tgt = values$imgs.r.clrd, SIMPLIFY = FALSE)
+        paintObjects(x, EBImage::channel(tgt, "asred"), col = "yellow")
+      }, x = values$imgs.r.label, tgt = values$imgs.r, SIMPLIFY = FALSE)
       values$imgs.g.pntd <- mapply(function(x,tgt){
-        paintObjects(x,tgt,col = "yellow")
-      }, x = values$imgs.g.label, tgt = values$imgs.g.clrd, SIMPLIFY = FALSE)
+        paintObjects(x, EBImage::channel(tgt, "asgreen"), col = "yellow")
+      }, x = values$imgs.g.label, tgt = values$imgs.g, SIMPLIFY = FALSE)
       values$imgs.b.pntd <- mapply(function(x,tgt){
-        paintObjects(x,tgt,col = "yellow")
-      }, x = values$imgs.b.label, tgt = values$imgs.b.clrd, SIMPLIFY = FALSE)
+        paintObjects(x,EBImage::channel(tgt, "asblue"),col = "yellow")
+      }, x = values$imgs.b.label, tgt = values$imgs.b, SIMPLIFY = FALSE)
       
       incProgress(1.0,detail=paste("Moving to Feature Extraction"))
     }) # end withProgress
@@ -889,12 +853,12 @@ shinyServer(function(input, output, session) {                                  
   output$extractorImagePlot <- renderPlot({
     c <- values$img.files == req(input$uploaded)                                # Logical vector to select the radio button image
     selectedImg <- req(values$imgs)[c][[1]]                                     # Extract user-selected image data
-    selectedImg.r <- values$imgs.r.clrd[c][[1]]                                 # use req() to ensure thresholding button has been clicked
-    selectedImg.g <- values$imgs.g.clrd[c][[1]]
-    selectedImg.b <- values$imgs.b.clrd[c][[1]]
-    selectedImg.r.th <- values$imgs.r.th[c][[1]]
-    selectedImg.g.th <- values$imgs.g.th[c][[1]]
-    selectedImg.b.th <- values$imgs.b.th[c][[1]]
+    selectedImg.r <- EBImage::channel(values$imgs.r[c][[1]],"asred")                                 # use req() to ensure thresholding button has been clicked
+    selectedImg.g <- EBImage::channel(values$imgs.g[c][[1]],"asgreen")
+    selectedImg.b <- EBImage::channel(values$imgs.b[c][[1]],"asblue")
+    selectedImg.r.th <- EBImage::channel(values$imgs.r.thresholded[c][[1]],"asred")
+    selectedImg.g.th <- EBImage::channel(values$imgs.g.thresholded[c][[1]],"asgreen")
+    selectedImg.b.th <- EBImage::channel(values$imgs.b.thresholded[c][[1]],"asblue")
     selectedImg.r.clbl <- values$imgs.r.clrlabel[c][[1]]
     selectedImg.g.clbl <- values$imgs.g.clrlabel[c][[1]]
     selectedImg.b.clbl <- values$imgs.b.clrlabel[c][[1]]
@@ -921,7 +885,7 @@ shinyServer(function(input, output, session) {                                  
          label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
     text(x = -10, y = (40 + 4*dim(selectedImg)[2] + dim(selectedImg)[2]/2), 
          label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-
+    
     text(x = selectedImg@dim[1]/2, y = (50 + 5*selectedImg@dim[2]),             # Horizontal Labels
          label = input$imgsRedStain, col = "black", cex = 1)
     text(x = 10 + 1.5*selectedImg@dim[1], y = (50 + 5*selectedImg@dim[2]),
@@ -1310,12 +1274,12 @@ shinyServer(function(input, output, session) {                                  
     output <- lapply(values$img.files, function(x){
       c <- values$img.files == x                                                # Logical vector for image selection
       selectedImg <- values$imgs[c][[1]]                                        # Selecting all corresponding image frames
-      selectedImg.r <- values$imgs.r.clrd[c][[1]]
-      selectedImg.g <- values$imgs.g.clrd[c][[1]]
-      selectedImg.b <- values$imgs.b.clrd[c][[1]]
-      selectedImg.r.th <- values$imgs.r.th[c][[1]]
-      selectedImg.g.th <- values$imgs.g.th[c][[1]]
-      selectedImg.b.th <- values$imgs.b.th[c][[1]]
+      selectedImg.r <- EBImage::channel(values$imgs.r[c][[1]],"asred")                                 # use req() to ensure thresholding button has been clicked
+      selectedImg.g <- EBImage::channel(values$imgs.g[c][[1]],"asgreen")
+      selectedImg.b <- EBImage::channel(values$imgs.b[c][[1]],"asblue")
+      selectedImg.r.th <- EBImage::channel(values$imgs.r.thresholded[c][[1]],"asred")
+      selectedImg.g.th <- EBImage::channel(values$imgs.g.thresholded[c][[1]],"asgreen")
+      selectedImg.b.th <- EBImage::channel(values$imgs.b.thresholded[c][[1]],"asblue")
       selectedImg.r.clbl <- values$imgs.r.clrlabel[c][[1]]
       selectedImg.g.clbl <- values$imgs.g.clrlabel[c][[1]]
       selectedImg.b.clbl <- values$imgs.b.clrlabel[c][[1]]
@@ -1323,15 +1287,18 @@ shinyServer(function(input, output, session) {                                  
       selectedImg.g.pntd <- values$imgs.g.pntd[c][[1]]
       selectedImg.b.pntd <- values$imgs.b.pntd[c][[1]]
 
-      blankSpot <- Image(                                                       # Blank canvas for formatting
-        matrix("white", dim(selectedImg)[1], dim(selectedImg)[2]))
-        EBImage::combine(                                                       # Formatted Image display
-          blankSpot, selectedImg, blankSpot,
-          selectedImg.r, selectedImg.g, selectedImg.b,
-          selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
-          selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
-          selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
-        )
+      # blank canvas for formatting
+      blankSpot <- Image(matrix("white", dim(selectedImg)[1], dim(selectedImg)[2]))
+      # Formatted Image 
+      tryCatch({EBImage::combine(
+        blankSpot, selectedImg, blankSpot,
+        selectedImg.r, selectedImg.g, selectedImg.b,
+        selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
+        selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
+        selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
+      )}, error = function(cond){
+        blankSpot
+      })
     })
     mapply(function(x,lbl){
       EBImage::display(

@@ -36,20 +36,7 @@ library(autothresholdr)                                                         
 # INITIAL CONDITIONS #
 ######################
 
-# Code to limit the number of files in fileInput("uploadImages")
-
-# js <- "
-# $(document).ready(function(){
-# document.getElementById('uploadImages').addEventListener('change', function() { 
-#   if(document.getElementById('uploadImages').files.length == 2) {             # Change '...files.length...' to whatever max file count you want
-#     return true;
-#   } else {
-#     alert('Please upload only n images of PNG, JPEG, and/or TIFF format');    # Change 'n' to whatever max file count you want
-#     this.value = '';
-#     return false;
-#   } 
-# })
-# })"
+options(shiny.maxRequestSize = 100*1024^2)
 
 ########
 # BODY #

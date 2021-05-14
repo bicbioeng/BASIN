@@ -90,12 +90,12 @@ The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts
       c <- values$img.files == x
       # Selecting all corresponding image frames
       selectedImg <- values$imgs[c][[1]]
-      selectedImg.r <- values$imgs.r.clrd[c][[1]]
-      selectedImg.g <- values$imgs.g.clrd[c][[1]]
-      selectedImg.b <- values$imgs.b.clrd[c][[1]]
-      selectedImg.r.th <- values$imgs.r.th[c][[1]]
-      selectedImg.g.th <- values$imgs.g.th[c][[1]]
-      selectedImg.b.th <- values$imgs.b.th[c][[1]]
+      selectedImg.r <- EBImage::channel(values$imgs.r[c][[1]],"asred")
+      selectedImg.g <- EBImage::channel(values$imgs.g[c][[1]],"asgreen")
+      selectedImg.b <- EBImage::channel(values$imgs.b[c][[1]],"asblue")
+      selectedImg.r.th <- EBImage::channel(values$imgs.r.thresholded[c][[1]],"asred")
+      selectedImg.g.th <- EBImage::channel(values$imgs.g.thresholded[c][[1]],"asgreen")
+      selectedImg.b.th <- EBImage::channel(values$imgs.b.thresholded[c][[1]],"asblue")
       selectedImg.r.clbl <- values$imgs.r.clrlabel[c][[1]]
       selectedImg.g.clbl <- values$imgs.g.clrlabel[c][[1]]
       selectedImg.b.clbl <- values$imgs.b.clrlabel[c][[1]]

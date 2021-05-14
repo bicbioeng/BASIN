@@ -1,9 +1,9 @@
-id,filename,alias,experiment,biocondition,alternative
-1,bcl2_133neg.jpg,,1,control,not=
-2,bcl2_133pos.jpg,,1,test,not=
-3,bcl2dapi_133neg.jpg,,1,control,not=
-4,bcl2dapi_133pos.jpg,,1,test,not=
-5,dmso_actin.jpg,,2,control,not=
-6,dmso_actin_ptk7.jpg,,2,test,not=
-7,dmso_ptk7.jpg,,2,control,not=
-8,vatal_actin_ptk7.jpg,,2,test,not=
+id,filename,stain,experiment,biocondition,alternative,color frame
+1,bcl2_133neg.jpg,,1,control,not=,red
+2,bcl2_133pos.jpg,,1,test,not=,red
+3,bcl2dapi_133neg.jpg,,1,control,not=,blue
+4,bcl2dapi_133pos.jpg,,1,test,not=,blue
+5,dmso_actin.jpg,,2,control,not=,green
+6,dmso_actin_ptk7.jpg,,2,test,not=,green
+7,dmso_ptk7.jpg,,2,control,not=,red
+8,vatal_actin_ptk7.jpg,,2,test,not=,red
