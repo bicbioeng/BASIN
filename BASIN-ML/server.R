@@ -8,6 +8,8 @@
 # related to those images. The user may then download a report of these results.
 
 library(reticulate)
+library(rmarkdown)
+options(tinytex.verbose = TRUE)
 
 # finds the location of the BASIN directory regardless of the working directory
 this_file = gsub("--file=", "", commandArgs()[grepl("--file", commandArgs())])
@@ -21,13 +23,14 @@ basinDir <- wd                                                             # All
 reportsDir <- getwd()                                                      # directory until the user chooses his or her own directory path
 
 # load the BASIN python environment
-env <- conda_list()$name == "basin"
+env <- conda_list()$name == "cellpose" # "basin"
 envPath <- conda_list()[env,]$python
 envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
 reticulate::use_condaenv(envPath, required=TRUE)
 keras::use_condaenv(envPath, required=TRUE)
 tensorflow::use_condaenv(envPath, required=TRUE)
 cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","cell_segmentation_unet_model.h5"))
+#cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","retrained_segmentation_unet_maskrcnn_data.h5"))
 
 # ensures tkwidgets show up in front-most GUI window
 tkraise(tktoplevel())
@@ -35,6 +38,20 @@ tkraise(tktoplevel())
 #######################################
 # PRE-DEFINED FUNCTIONS AND VARIABLES #
 #######################################
+
+# function that computes the net intensity difference and object count difference across experimental groups
+# assumes that the input data is one of the metadata tables used to construct the image metadata table (values$barplotData)
+intensityAndCountDifference <- function(data){
+  data <- data[order(data$experiment),]
+  control <- data[data$condition == "control",]
+  test <- data[data$condition == "test",]
+  netIntensityDiff <- vaggregate(control$sumImgIntensity, control$experiment, mean) - vaggregate(test$sumImgIntensity, test$experiment, mean)
+  objCountDiff <- vaggregate(control$objCount, control$experiment, mean) - vaggregate(test$objCount, test$experiment, mean)
+  stainInfo <- vapply(split(data$stain, data$experiment), function(x){x[[1]]}, character(1))
+  outTable <- data.frame(unique(data$experiment),stainInfo,netIntensityDiff,objCountDiff)
+  names(outTable) <- c("experiment", "stain", "Net Image Intensity Difference", "Object Count Difference")
+  return(outTable)
+}
 
 tTestToDataFrame <- function(results, frame, altHypo){                          # Defined function to properly construct data frame of t-test results
   if(!is.na(results[[1]])){
@@ -66,9 +83,10 @@ colExtract <- function(x, column){                                              
   })
 }
 
-# translates alternative hypothesis for t.test()
+# Translates alternative hypothesis from simple symbols in the analysis table
 alternative <- function(x){
   alt <- x$alternative
+  if(all(is.na(alt))){return(NA)}
   if(any(stri_cmp_eq(alt,"not="))){
     return("two.sided")
   } else if(any(stri_cmp_eq(alt,"<"))){
@@ -79,6 +97,7 @@ alternative <- function(x){
     return(NA)
   }
 }
+
 tf_unet_segmentation <- function(imgs, model){                                  # Image segmentation using TF Unet model
   dims <- model$input$shape
   # convert all images to grayscale and resize to match model input dims
@@ -105,8 +124,6 @@ tf_unet_segmentation <- function(imgs, model){                                  
   return(preds)
 }
 
-options(shiny.maxRequestSize = 300*1024^2)                                      # For fileInput object max size (300 MB)
-
 shinyServer(function(input, output, session) {                                  # Defines the server-side logic of the Shiny application.
   
   values <- reactiveValues()                                                    # Creates an object for storing reactive values. Variables stored in  
@@ -118,9 +135,11 @@ shinyServer(function(input, output, session) {                                  
   hideTab(inputId = "modulePanel", target = "Extractor", session)               # Hides 'Extractor' navbar link so user cannot go to it too soon
   hideTab(inputId = "modulePanel", target = "Viewer", session)                  # Hides 'Viewer' navbar link so user cannot go to it too soon
   hideTab(inputId = "modulePanel", target = "Reporter", session)                # Hides 'Reporter' navbar link so user cannot go to it too soon
+  hideElement(id = "objectAreaThresholding")
   hideElement(id = "previewBoxplots")                                           # Hides 'Boxplots & Summary' button in Extractor to avoid confusion
   hideElement(id = "statResults")                                               # Hides 'Analysis Results' button in Extractor to avoid confusion
   hideElement(id = "gotoViewer")                                                # Hides 'Go To Viewer' button in Extractor to avoid confusion
+  hideElement(id = "removeGraphOutliers")
   
   
   output$authorsUsed <- renderValueBox({                                        # These value boxes will show continuously-updated numbers of how 
@@ -221,8 +240,8 @@ shinyServer(function(input, output, session) {                                  
   
   observeEvent(input$downloadAnalysisTable, {                                   # Stat Design Table Download
     df <- data.frame(
-      "filename" = req(values$img.files), "alias" = "", "experiment" = NA, 
-      "biocondition" = NA, "alternative" = "not=")
+      "filename" = req(values$img.files), "stain" = "", "experiment" = NA, 
+      "biocondition" = NA, "alternative" = "not=", "color frame" = "red")
     values$analysisTable <- cbind(id = rownames(df), df)
     #tkraise(tktoplevel())
     wd <- tclvalue(tkchooseDirectory())
@@ -232,33 +251,21 @@ shinyServer(function(input, output, session) {                                  
         row.names = FALSE)
     }
   })
-  
-
-  # observeEvent(input$uploadAnalysisTable, {                                   # Table Upload
-  #   output$analysisTable <- renderDT(expr = {
-  #     df <- input$uploadAnalysisTable
-  #     if (is.null(df))
-  #       return(NULL)
-  #     analysisTable <- read.csv(df$datapath)
-  #     checkInput <-  values$img.files %in% analysisTable$filename             # check for correctness of csv table input using filenames
-  #     print(checkInput)
-  #     if(!all(checkInput)){
-  #       disable(id = "gotoExtractor")
-  #       stop("Improper stat design CSV uploaded. Please check your file and upload again")
-  #     }
-  #     enable(id = "gotoExtractor")                    # Display confirmation button for Upload module 
-  #     values$analysisTable <- analysisTable
-  #     analysisTable
-  #   },
-  #   editable = FALSE, selection = 'none', rownames = FALSE)
-  # })
 
   observeEvent(input$uploadAnalysisTable, {                                     # Table Upload
     output$analysisTable <- renderTable(expr = {
       df <- input$uploadAnalysisTable
       if (is.null(df))
         return(NULL)
-      analysisTable <- read.csv(df$datapath)
+      analysisTable <- read.csv(df$datapath, stringsAsFactors = FALSE)
+      if(any(is.na(analysisTable$'color.frame'))){
+        # any NA color frame values are set automatically to red frame
+        analysisTable$'color.frame'[is.na(analysisTable$'color.frame')] <- "red"
+      }
+      if(any(is.na(analysisTable$'stain'))){
+        # any NA stains are set to blank
+        analysisTable$'stain'[is.na(analysisTable$'stain')] <- ""
+      }
       checkInput <-  values$img.files %in% analysisTable$filename               # check for correctness of csv table input using filenames
       if(!all(checkInput)){
         disable(id = "gotoExtractor")
@@ -266,8 +273,34 @@ shinyServer(function(input, output, session) {                                  
              Please check your file and upload again")
       }
       enable(id = "gotoExtractor")                                              # Display confirmation button for Upload module 
+      ordering <- match(values$img.files, analysisTable$filename)
+      analysisTable <- analysisTable[ordering,]
+      # fetch color-coding for stains
+      redStain <- rep('Red Frame', length(analysisTable$filename))
+      greenStain <- rep('Green Frame', length(analysisTable$filename))
+      blueStain <- rep('Blue Frame', length(analysisTable$filename))
+      if(!is.null(analysisTable$'color.frame')){
+        red <- analysisTable$'color.frame' == 'red' & analysisTable$'stain' != ""
+        green <- analysisTable$'color.frame' == 'green' & analysisTable$'stain' != ""
+        blue <- analysisTable$'color.frame' == 'blue' & analysisTable$'stain' != ""
+        redStain[red] <- as.vector(analysisTable$'stain'[red])
+        greenStain[green] <- as.vector(analysisTable$'stain'[green])
+        blueStain[blue] <- as.vector(analysisTable$'stain'[blue])
+      }
+      values$redStain <- redStain
+      values$greenStain <- greenStain
+      values$blueStain <- blueStain
+      # color-coding for graphs
+      reds <- unique(redStain)
+      greens <- unique(greenStain)
+      blues <- unique(blueStain)
+      colorCode <- c(rep("salmon",length(reds)), rep("green3",length(greens)),rep("cornflower blue",length(blues)))
+      names(colorCode) <- c(reds, greens, blues)
+      values$colorCode <- colorCode
+      # reactive table for access anywhere in app
       values$analysisTable <- analysisTable
-      analysisTable[,1:6]
+      # display table
+      analysisTable[1:6,c("filename","stain","experiment","biocondition","alternative","color.frame")]
     }
     ) 
   })
@@ -364,8 +397,11 @@ shinyServer(function(input, output, session) {                                  
         values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
       } else if(input$mlThresh == "cellpose"){
         # creating thresholded masks using cellpose
+        od <- getwd()
+        setwd(basinDir)
         write(values$img.paths,file.path(basinDir,"basinCellposeImgs.txt"))
         py_run_file(file.path(basinDir,"cellpose_segmentation_BASIN.py"))
+        setwd(od)
         masks_r <- lapply(py$masks_r, EBImage::as.Image)
         masks_g <- lapply(py$masks_g, EBImage::as.Image)
         masks_b <- lapply(py$masks_b, EBImage::as.Image)
@@ -443,7 +479,7 @@ shinyServer(function(input, output, session) {                                  
       fileCount <- length(labeled)
       counter <- 0
       withProgress(message = 'Getting features', value = 0, {                   # Displays a progress window at the bottom right of the app letting the user know what's going on
-        mapply(function(l, r) {
+        mapply(function(l, r, s) {
           tryCatch({
             counter <<- counter + 1
             basicFeatures <- computeFeatures.basic(x = l, ref = r)
@@ -452,7 +488,7 @@ shinyServer(function(input, output, session) {                                  
             features <- data.frame(
               experiment = values$analysisTable$experiment[counter],
               biocondition = values$analysisTable$biocondition[counter],
-              stain = stain,
+              stain = s,
               basicFeatures,
               momentFeatures,
               shapeFeatures, stringsAsFactors = FALSE)
@@ -461,13 +497,15 @@ shinyServer(function(input, output, session) {                                  
             return(features)
           },
           error = function(cond){                                               # reapply image morphology functions to problem image
-            if(input$thresh.auto == "cellpose"){
+            if(input$mlThresh == "cellpose"){
               # compute cellpose mask for error img, use stain for correct channel
               channel <- c(1,2,3)
               names(channel) <- c(input$imgsRedStain,input$imgsGreenStain,input$imgsBlueStain)
               mask <- as.array(py_call(py$compute_mask,r@.Data,channel[stain]))
               imgThresh <- EBImage::flop(EBImage::rotate(mask,90))
-            } else {
+            }else if(input$mlThresh == "U-net"){
+              imgThresh <- tf_unet_segmentation(unname(r), model=cell_segmentation_model)
+            }else {
               imgThresh <- autothreshold(r)
             }
             imgLabel <- bwlabel(imgThresh)
@@ -484,7 +522,7 @@ shinyServer(function(input, output, session) {                                  
             features <- data.frame(
               experiment = values$analysisTable$experiment[counter],
               biocondition = values$analysisTable$biocondition[counter],
-              stain = stain,
+              stain = s,
               basicFeatures,
               momentFeatures,
               shapeFeatures, stringsAsFactors = FALSE)
@@ -493,56 +531,75 @@ shinyServer(function(input, output, session) {                                  
             return(features)
           })
         },
-        l = labeled, r = reference, SIMPLIFY = FALSE)
+        l = labeled, r = reference, s = stain, SIMPLIFY = FALSE)
       })
     }
-    
-    ## Code using for-loop for feature extraction
-    # featureExtract <- function(labeled, reference, stain){
-    #   features <- ""
-    #   fileCount <- length(values$img.files)
-    #   withProgress(message = 'Getting features', value = 0, {
-    #     for(i in seq_along(labeled)){
-    #       l <- labeled[[i]]                 # current labeled image                        
-    #       r <- reference[[i]]               # current reference image
-    #       if(sum(l > 0)){
-    #         basicFeatures <- computeFeatures.basic(x = l, ref = r)
-    #         momentFeatures <- computeFeatures.moment(x = l, ref = r)
-    #         shapeFeatures <- computeFeatures.shape(x = l)
-    #         cur.features <- data.frame(filename = values$img.files[[i]],
-    #                                    experiment = values$analysisTable$experiment[i],
-    #                                    biocondition = values$analysisTable$biocondition[i],
-    #                                    basicFeatures,
-    #                                    momentFeatures,
-    #                                    shapeFeatures,
-    #                                    stain = stain,
-    #                                    stringsAsFactors = FALSE)
-    #         features <- rbind(features, cur.features)
-    #       }
-    #       incProgress(1/fileCount, detail=paste("Image", i, "of", fileCount))
-    #     }
-    #   })
-    #   features
-    # }         
-    
+    print("getting features")
     # Evaluate Features for each image's frames
-    values$features.r <- featureExtract(
+    features.r <- featureExtract(
       req(values$imgs.r.label), reference = values$imgs.r, 
-      stain = input$imgsRedStain)
-    values$features.g <- featureExtract(
+      stain = values$redStain) #input$imgsRedStain)
+    features.g <- featureExtract(
       req(values$imgs.g.label), reference = values$imgs.g, 
-      stain = input$imgsGreenStain)
-    values$features.b <- featureExtract(
+      stain = values$greenStain) #input$imgsGreenStain)
+    features.b <- featureExtract(
       req(values$imgs.b.label), reference = values$imgs.b, 
-      stain = input$imgsBlueStain)
-
-    featuresDF.r <- ldply(req(values$features.r), .id = "filename")             # Convert list of feature data into data frame
-    featuresDF.g <- ldply(req(values$features.g), .id = "filename")
-    featuresDF.b <- ldply(req(values$features.b), .id = "filename")
-
-    # featuresDF.r <- cbind(featuresDF.r, stain = input$imgsRedStain)           # Add stain information
-    # featuresDF.g <- cbind(featuresDF.g, stain = input$imgsGreenStain)
-    # featuresDF.b <- cbind(featuresDF.b, stain = input$imgsBlueStain)
+      stain = values$blueStain) #input$imgsBlueStain)
+    print("converting features")
+    featuresDF.r <- ldply(req(features.r), .id = "filename")             # Convert list of feature data into data frame
+    featuresDF.g <- ldply(req(features.g), .id = "filename")
+    featuresDF.b <- ldply(req(features.b), .id = "filename")
+    
+    featuresDF.r$biocondition <- paste0(featuresDF.r$biocondition,".r")
+    featuresDF.g$biocondition <- paste0(featuresDF.g$biocondition,".g")
+    featuresDF.b$biocondition <- paste0(featuresDF.b$biocondition,".b")
+    print("bind all")
+    values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
+    values$maxObjectArea <- max(values$featuresDF.all$s.area)
+    
+    # create reactive features that can be used by other code blocks
+    values$featuresRaw.r <- features.r
+    values$featuresRaw.g <- features.g
+    values$featuresRaw.b <- features.b
+    showElement(id = "objectAreaThresholding")
+    showElement(id = "previewBoxplots")                                         # Allows user to see 'Boxplots & Summary' modal
+    showElement(id = "statResults")                                             # Allows user to see 'Analysis Results' modal
+    showElement(id = "removeGraphOutliers")
+  })                                                                            # end observeEvent(input$confirmThresh)
+  
+  # update feature data after changes in object area range
+  observeEvent(input$minMaxObjectArea,{
+    minArea <- input$minMaxObjectArea[1]
+    maxArea <- input$minMaxObjectArea[2]
+    
+    features.r.filtered <- lapply(values$featuresRaw.r, function(x){
+      x_new <- subset.data.frame(x, s.area > minArea & s.area < maxArea)
+      if(nrow(x_new) == 0){
+        x_new <- x_new[1,]
+        x_new[1,4:ncol(x_new)] <- 0
+      }
+      return(x_new)
+    })
+    features.g.filtered <- lapply(values$featuresRaw.g, function(x){
+      x_new <- subset.data.frame(x, s.area > minArea & s.area < maxArea)
+      if(nrow(x_new) == 0){
+        x_new <- x_new[1,]
+        x_new[1,4:ncol(x_new)] <- 0
+      }
+      return(x_new)
+    })
+    features.b.filtered <- lapply(values$featuresRaw.b, function(x){
+      x_new <- subset.data.frame(x, s.area > minArea & s.area < maxArea)
+      if(nrow(x_new) == 0){
+        x_new <- x_new[1,]
+        x_new[1,4:ncol(x_new)] <- 0
+      }
+      return(x_new)
+    })
+    
+    featuresDF.r <- ldply(req(features.r.filtered), .id = "filename")             # Convert list of feature data into data frame
+    featuresDF.g <- ldply(req(features.g.filtered), .id = "filename")
+    featuresDF.b <- ldply(req(features.b.filtered), .id = "filename")
     
     featuresDF.r$biocondition <- paste0(featuresDF.r$biocondition,".r")
     featuresDF.g$biocondition <- paste0(featuresDF.g$biocondition,".g")
@@ -550,52 +607,50 @@ shinyServer(function(input, output, session) {                                  
     
     values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
     
-    count.r <- lapply(values$features.r, function(x){
+    count.r <- lapply(features.r.filtered, function(x){
       counts <- nrow(x)
       if(counts == 1 && x$b.mean == 0){
         counts <- 0
       }
       return(counts)
     })                                  # Object count determined using number of rows
-    count.g <- lapply(values$features.g, function(x){
+    count.g <- lapply(features.g.filtered, function(x){
       counts <- nrow(x)
       if(counts == 1 && x$b.mean == 0){
         counts <- 0
       }
       return(counts)
     })
-    count.b <- lapply(values$features.b, function(x){
+    count.b <- lapply(features.b.filtered, function(x){
       counts <- nrow(x)
       if(counts == 1 && x$b.mean == 0){
         counts <- 0
       }
       return(counts)
     })
-
+    
     count.r <- ldply(count.r, data.frame, .id = "biocondition")                 # Converts list into data frame for Raw Data table
     count.g <- ldply(count.g, data.frame, .id = "biocondition")
     count.b <- ldply(count.b, data.frame, .id = "biocondition")
-
-    observe(print(paste(input$imgsRedStain)))
     
     metadata.r <- data.frame(                                                   # Sum Intensity and Object Count Data
       row.names = NULL,
       filename = values$img.files,
       condition = values$analysisTable$biocondition,
-      stain = input$imgsRedStain,
+      stain = values$redStain, #input$imgsRedStain,
       sumImgIntensity = vapply(
         values$imgs, function(x) {sum(imageData(x)[,,1])}, numeric(1)),
       objCount = count.r$X..i..,
       sumObjIntensity = vapply(
         values$imgs.r.thresholded, function(x) {sum(imageData(x))},numeric(1)),
       meanObjIntensity = vapply(
-        values$features.r, function(x){ mean(x$b.mean) }, numeric(1)),
+        features.r.filtered, function(x){ mean(x$b.mean) }, numeric(1)),
       sumObjArea = vapply(
-        values$features.r, function(x){ sum(x$s.area) }, numeric(1)),
+        features.r.filtered, function(x){ sum(x$s.area) }, numeric(1)),
       meanObjArea = vapply(
-        values$features.r, function(x){ mean(x$s.area) }, numeric(1)),
+        features.r.filtered, function(x){ mean(x$s.area) }, numeric(1)),
       biocondition = count.r$biocondition,
-      # experiment = values$analysisTable$experiment,
+      experiment = values$analysisTable$experiment,
       stringsAsFactors = FALSE
     )
     
@@ -603,20 +658,20 @@ shinyServer(function(input, output, session) {                                  
       row.names = NULL,
       filename = values$img.files,
       condition = values$analysisTable$biocondition,
-      stain = input$imgsGreenStain,
+      stain = values$greenStain, #input$imgsGreenStain,
       sumImgIntensity = vapply(
         values$imgs, function(x) {sum(imageData(x)[,,2])}, numeric(1)),
       objCount = count.g$X..i..,
       sumObjIntensity = vapply(
         values$imgs.g.thresholded, function(x) {sum(imageData(x))},numeric(1)),
       meanObjIntensity = vapply(
-        values$features.g, function(x){ mean(x$b.mean) }, numeric(1)),
+        features.g.filtered, function(x){ mean(x$b.mean) }, numeric(1)),
       sumObjArea = vapply(
-        values$features.g, function(x){ sum(x$s.area) }, numeric(1)),
+        features.g.filtered, function(x){ sum(x$s.area) }, numeric(1)),
       meanObjArea = vapply(
-        values$features.g, function(x){ mean(x$s.area) }, numeric(1)),
+        features.g.filtered, function(x){ mean(x$s.area) }, numeric(1)),
       biocondition = count.g$biocondition,
-      # experiment = values$analysisTable$experiment,
+      experiment = values$analysisTable$experiment,
       stringsAsFactors = FALSE
     )
     
@@ -624,20 +679,20 @@ shinyServer(function(input, output, session) {                                  
       row.names = NULL,
       filename = values$img.files,
       condition = values$analysisTable$biocondition,
-      stain = input$imgsBlueStain,
+      stain = values$blueStain, #input$imgsBlueStain,
       sumImgIntensity = vapply(
         values$imgs, function(x) {sum(imageData(x)[,,3])}, numeric(1)),
       objCount = count.b$X..i..,
       sumObjIntensity = vapply(
         values$imgs.b.thresholded, function(x) {sum(imageData(x))},numeric(1)),
       meanObjIntensity = vapply(
-        values$features.b, function(x){ mean(x$b.mean) }, numeric(1)),
+        features.b.filtered, function(x){ mean(x$b.mean) }, numeric(1)),
       sumObjArea = vapply(
-        values$features.b, function(x){ sum(x$s.area) }, numeric(1)),
+        features.b.filtered, function(x){ sum(x$s.area) }, numeric(1)),
       meanObjArea = vapply(
-        values$features.b, function(x){ mean(x$s.area) }, numeric(1)),
+        features.b.filtered, function(x){ mean(x$s.area) }, numeric(1)),
       biocondition = count.b$biocondition,
-      # experiment = values$analysisTable$experiment,
+      experiment = values$analysisTable$experiment,
       stringsAsFactors = FALSE
     )
     
@@ -650,9 +705,19 @@ shinyServer(function(input, output, session) {                                  
     }
     
     values$barplotData <- format.metadata(metadata.r,metadata.g,metadata.b)
-    showElement(id = "previewBoxplots")                                         # Allows user to see 'Boxplots & Summary' modal
-    showElement(id = "statResults")                                             # Allows user to see 'Analysis Results' modal
-  })                                                                            # end observeEvent(input$confirmThresh)
+    
+    # format the differences table
+    diff.r <- intensityAndCountDifference(metadata.r)
+    diff.g <- intensityAndCountDifference(metadata.g)
+    diff.b <- intensityAndCountDifference(metadata.b)
+    differenceData <- rbind(diff.r, diff.g, diff.b)
+    values$differenceData <- differenceData[order(differenceData$experiment),]
+    
+    # update reactive feature values
+    values$features.r <- features.r.filtered
+    values$features.g <- features.g.filtered
+    values$features.b <- features.b.filtered
+  })
   
   observeEvent(input$statResults,{                                              # Allow user to access Viewer only once they have checked the Stat Design
     showElement(id = "gotoViewer")
@@ -705,6 +770,16 @@ shinyServer(function(input, output, session) {                                  
       
       altHypothesis <- alternative(x)
       
+      # get the correct staining info
+      red <- ifelse(any(x$'color.frame' == 'red' & x$'stain' != ""),
+                    yes = as.vector(x$'stain'[x$'color.frame' == 'red'])[1],
+                    no = 'Red Frame')
+      green <- ifelse(any(x$'color.frame' == 'green' & x$'stain' != ""),
+                      yes = as.vector(x$'stain'[x$'color.frame' == 'green'])[1],
+                      no = 'Green Frame')
+      blue <- ifelse(any(x$'color.frame' == 'blue' & x$'stain' != ""),
+                     yes = as.vector(x$'stain'[x$'color.frame' == 'blue'])[1],
+                     no = 'Blue Frame')
       safeTest <- possibly(function(group1, group2){
         t.test(group1,group2,alternative = altHypothesis)
       }, otherwise = NA)
@@ -712,27 +787,41 @@ shinyServer(function(input, output, session) {                                  
       experiment.g.results <- safeTest(controlGroup.g, testGroup.g)
       experiment.b.results <- safeTest(controlGroup.b, testGroup.b)
       
-      result <- rbind(                                                          # Bind results as one data frame
-        redFrame = tTestToDataFrame(
-          experiment.r.results,input$imgsRedStain, altHypothesis),
-        greenFrame = tTestToDataFrame(
-          experiment.g.results,input$imgsGreenStain, altHypothesis),
-        blueFrame = tTestToDataFrame(
-          experiment.b.results,input$imgsBlueStain, altHypothesis))
+      # result <- rbind(                                                          # Bind results as one data frame
+      #   redFrame = tTestToDataFrame(
+      #     experiment.r.results,input$imgsRedStain, altHypothesis),
+      #   greenFrame = tTestToDataFrame(
+      #     experiment.g.results,input$imgsGreenStain, altHypothesis),
+      #   blueFrame = tTestToDataFrame(
+      #     experiment.b.results,input$imgsBlueStain, altHypothesis))
+      # Bind results as one data frame
+      redFrame = tTestToDataFrame(
+        experiment.r.results,red, altHypothesis)
+      redFrame['Mean Object Intensity Difference'] <- mean(controlGroup.r) - mean(testGroup.r)
+      greenFrame = tTestToDataFrame(
+        experiment.g.results,green, altHypothesis)
+      greenFrame['Mean Object Intensity Difference'] <- mean(controlGroup.g) - mean(testGroup.g)
+      blueFrame = tTestToDataFrame(
+        experiment.b.results,blue, altHypothesis)
+      blueFrame['Mean Object Intensity Difference'] <- mean(controlGroup.b) - mean(testGroup.b)
+      result <- rbind(                                                          
+        redFrame = redFrame,
+        greenFrame = greenFrame,
+        blueFrame = blueFrame)
       
-
+      
       data <- rbind(                                                            # T-test data pre-processing for plotting
-        data.frame("mean" = controlGroup.r,stain = input$imgsRedStain, 
+        data.frame("mean" = controlGroup.r,stain = red, 
                    biocondition = "control.r"),
-        data.frame("mean" = testGroup.r,stain = input$imgsRedStain,
+        data.frame("mean" = testGroup.r,stain = red,
                    biocondition = "test.r"),
-        data.frame("mean" = controlGroup.g,stain = input$imgsGreenStain, 
+        data.frame("mean" = controlGroup.g,stain = green, 
                    biocondition = "control.g"),
-        data.frame("mean" = testGroup.g,stain = input$imgsGreenStain, 
+        data.frame("mean" = testGroup.g,stain = green, 
                    biocondition = "test.g"),
-        data.frame("mean" = controlGroup.b,stain = input$imgsBlueStain, 
+        data.frame("mean" = controlGroup.b,stain = blue, 
                    biocondition = "control.b"),
-        data.frame("mean" = testGroup.b,stain = input$imgsBlueStain, 
+        data.frame("mean" = testGroup.b,stain = blue, 
                    biocondition = "test.b"))
       
       list(data = data ,result = result)                                        # Return list of t-test control group data, test group data, and t-test results
@@ -759,34 +848,51 @@ shinyServer(function(input, output, session) {                                  
       testGroup.b <- unlist(areas.b[testGroup], use.names = FALSE)
       
       altHypothesis <- alternative(x)
-
+      # get the correct staining info
+      red <- ifelse(any(x$'color.frame' == 'red' & x$'stain' != ""),
+                    yes = as.vector(x$'stain'[x$'color.frame' == 'red'])[1],
+                    no = 'Red Frame')
+      green <- ifelse(any(x$'color.frame' == 'green' & x$'stain' != ""),
+                      yes = as.vector(x$'stain'[x$'color.frame' == 'green'])[1],
+                      no = 'Green Frame')
+      blue <- ifelse(any(x$'color.frame' == 'blue' & x$'stain' != ""),
+                     yes = as.vector(x$'stain'[x$'color.frame' == 'blue'])[1],
+                     no = 'Blue Frame')
       safeTest <- possibly(function(group1, group2){                            # T-test control vs test biocondition
         t.test(group1,group2,alternative = altHypothesis)
       }, otherwise = NA)
       experiment.r.results <- safeTest(controlGroup.r, testGroup.r)
       experiment.g.results <- safeTest(controlGroup.g, testGroup.g)
       experiment.b.results <- safeTest(controlGroup.b, testGroup.b)
-       
-      result <- rbind(                                                          # Bind results as one data frame
-        redFrame = tTestToDataFrame(
-          experiment.r.results,input$imgsRedStain,altHypothesis),
-        greenFrame = tTestToDataFrame(
-          experiment.g.results,input$imgsGreenStain,altHypothesis),
-        blueFrame = tTestToDataFrame(
-          experiment.b.results,input$imgsBlueStain,altHypothesis))
       
-      data <- rbind(                                                            # T-test data pre-processing for plotting
-        data.frame("area" = controlGroup.r,stain = input$imgsRedStain, 
+      # Bind results as one data frame
+      redFrame = tTestToDataFrame(
+        experiment.r.results,red, altHypothesis)
+      redFrame['Mean Object Area Difference'] <- mean(controlGroup.r) - mean(testGroup.r)
+      greenFrame = tTestToDataFrame(
+        experiment.g.results,green, altHypothesis)
+      greenFrame['Mean Object Area Difference'] <- mean(controlGroup.g) - mean(testGroup.g)
+      blueFrame = tTestToDataFrame(
+        experiment.b.results,blue, altHypothesis)
+      blueFrame['Mean Object Area Difference'] <- mean(controlGroup.b) - mean(testGroup.b)
+      result <- rbind(                                                          
+        redFrame = redFrame,
+        greenFrame = greenFrame,
+        blueFrame = blueFrame)
+      
+      # T-test data pre-processing for plotting
+      data <- rbind(                                                            
+        data.frame("area" = controlGroup.r,stain = red, 
                    biocondition = "control.r"),
-        data.frame("area" = testGroup.r,stain = input$imgsRedStain,
+        data.frame("area" = testGroup.r,stain = red,
                    biocondition = "test.r"),
-        data.frame("area" = controlGroup.g,stain = input$imgsGreenStain, 
+        data.frame("area" = controlGroup.g,stain = green, 
                    biocondition = "control.g"),
-        data.frame("area" = testGroup.g,stain = input$imgsGreenStain, 
+        data.frame("area" = testGroup.g,stain = green, 
                    biocondition = "test.g"),
-        data.frame("area" = controlGroup.b,stain = input$imgsBlueStain, 
+        data.frame("area" = controlGroup.b,stain = blue, 
                    biocondition = "control.b"),
-        data.frame("area" = testGroup.b,stain = input$imgsBlueStain, 
+        data.frame("area" = testGroup.b,stain = blue, 
                    biocondition = "test.b"))
       
       list(data = data, result = result)                                        # Return list of t-test control group data, test group data, and t-test results
@@ -802,6 +908,18 @@ shinyServer(function(input, output, session) {                                  
   # EXTRACTOR GRAPHIC ELEMENTS #
   ##############################
   
+  # slider for thresholding by object area
+  output$objectAreaThresholding <- renderUI({
+    maxArea <- max(values$maxObjectArea)
+    sliderInput(
+      inputId = "minMaxObjectArea", 
+      label = div("Threshold Object Area Range (total pixels):"), 
+      min = 0, 
+      max = maxArea, 
+      value = c(0, maxArea)
+    )
+  })
+  
   output$conditionalImageInput <- renderUI({                                    # Radio button selection in for viewing individual images
       selectInput(
         inputId = "uploaded", label = "View Image:", 
@@ -811,12 +929,12 @@ shinyServer(function(input, output, session) {                                  
   output$extractorImagePlot <- renderPlot({
     c <- values$img.files == req(input$uploaded)                                # Logical vector to select the radio button image
     selectedImg <- req(values$imgs)[c][[1]]                                     # Extract user-selected image data
-    selectedImg.r <- values$imgs.r.clrd[c][[1]]                                 # use req() to ensure thresholding button has been clicked
-    selectedImg.g <- values$imgs.g.clrd[c][[1]]
-    selectedImg.b <- values$imgs.b.clrd[c][[1]]
-    selectedImg.r.th <- values$imgs.r.th[c][[1]]
-    selectedImg.g.th <- values$imgs.g.th[c][[1]]
-    selectedImg.b.th <- values$imgs.b.th[c][[1]]
+    selectedImg.r <- EBImage::channel(values$imgs.r[c][[1]],"asred")                                 # use req() to ensure thresholding button has been clicked
+    selectedImg.g <- EBImage::channel(values$imgs.g[c][[1]],"asgreen")
+    selectedImg.b <- EBImage::channel(values$imgs.b[c][[1]],"asblue")
+    selectedImg.r.th <- EBImage::channel(values$imgs.r.thresholded[c][[1]],"asred")
+    selectedImg.g.th <- EBImage::channel(values$imgs.g.thresholded[c][[1]],"asgreen")
+    selectedImg.b.th <- EBImage::channel(values$imgs.b.thresholded[c][[1]],"asblue")
     selectedImg.r.clbl <- values$imgs.r.clrlabel[c][[1]]
     selectedImg.g.clbl <- values$imgs.g.clrlabel[c][[1]]
     selectedImg.b.clbl <- values$imgs.b.clrlabel[c][[1]]
@@ -855,49 +973,54 @@ shinyServer(function(input, output, session) {                                  
   # Mean Object Intensity Boxplots (Pre-Analysis)
   
   output$intensityImgPlot <- renderPlot({                                       # Image-Level Intensity Plot
+    outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$featuresDF.all,
       x = "filename",
       y = "b.mean",
       combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       title = "Boxplot 3. Image-Level Object Mean Intensities",
       xlab = "",
       ylab = "Intensity (0-1 grayscale)",
-      caption = paste0("BASIN session ID: ", values$sessionID)
+      caption = paste0("BASIN session ID: ", values$sessionID),
+      outlier.shape = outliers
     ) +
       rotate_x_text(angle = 60)
-      # scale_x_discrete(labels = rep(c(input$img1Condition, input$img2Condition), 3))
-   
-      })
-
+    # scale_x_discrete(labels = rep(c(input$img1Condition, input$img2Condition), 3))
+    
+  })
+  
   output$areaImgPlot <- renderPlot({                                            # Image-Level Area Plot
+    outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$featuresDF.all,
       x = "filename",
       y = "s.area",
       combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       title = "Boxplot 4. Image-Level Object Areas",
       xlab = "",
       ylab = "Area (pixels)",
-      caption = paste0("BASIN session ID: ", values$sessionID)
+      caption = paste0("BASIN session ID: ", values$sessionID),
+      outlier.shape = outliers
     ) +
       rotate_x_text(angle = 60)
-      # scale_x_discrete(labels = rep(c(input$img1Condition, input$img2Condition), 3))
+    # scale_x_discrete(labels = rep(c(input$img1Condition, input$img2Condition), 3))
     
-      })
+  })
   
   boxplot1 <- reactive({
+    outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$featuresDF.all,
       x = "biocondition",
       y = "b.mean",
       # combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       title = "Boxplot 1. Objects' Mean Intensities",
       xlab = "",
       ylab = "Intensity (0-1 grayscale)",
@@ -905,23 +1028,25 @@ shinyServer(function(input, output, session) {                                  
         "E", levels(as.factor(values$featuresDF.all$experiment)))),
       facet.by = "experiment",
       # caption = paste0("BASIN session ID: ", values$sessionID, "; experiment ID: ", input$experimentName)
-      caption = paste0("BASIN session ID: ", values$sessionID)
+      caption = paste0("BASIN session ID: ", values$sessionID), 
+      outlier.shape = outliers
     ) + 
       rotate_x_text(angle = 60) +
       scale_x_discrete(labels = rep(c("control", "test"), 3))
-  
+    
   })
   
   boxplot2 <- reactive({
+    outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$featuresDF.all,
       x = "biocondition",
       y = "s.area",
       # combine = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       title = "Boxplot 2. Object Areas",
-      subtitle = "Outliers not shown",
+      #subtitle = "Outliers not shown",
       xlab = "",
       ylab = "Area (pixels)",
       panel.labs = list(experiment = paste0(
@@ -929,13 +1054,13 @@ shinyServer(function(input, output, session) {                                  
       facet.by = "experiment",
       # caption = paste0("BASIN session ID: ", values$sessionID, "; experiment ID: ", input$experimentName)
       caption = paste0("BASIN session ID: ", values$sessionID),
-      outlier.shape = NA
+      outlier.shape = outliers
     ) + 
       rotate_x_text(angle = 60) +
       scale_x_discrete(labels = rep(c("control", "test"), 3)) +
       scale_y_continuous(
         limits = quantile(values$featuresDF.all$s.area, c(0.1, 0.9)))
-      })                                                                            # end reactive 'boxplot2'
+  })                                                                            # end reactive 'boxplot2'
   
   metadataDT <- reactive({                                                      # Summary Data table
     sketch = htmltools::withTags(table(
@@ -978,7 +1103,10 @@ shinyServer(function(input, output, session) {                                  
   })
   output$areatTestTable <- renderTable({
     values$objectAreaResults
-  })                                                                                    
+  })
+  output$differenceTable <- renderTable({
+    values$differenceData
+  })
   
   # Barplot of summed-object intensities for each image, split by image frames
   barplot1 <- reactive({
@@ -989,7 +1117,7 @@ shinyServer(function(input, output, session) {                                  
       combine = FALSE,
       merge = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       title = "Barplot 1. Sum Object Intensities",
       subtitle = "post-thresholded",
       # add = "mean_se",
@@ -998,7 +1126,7 @@ shinyServer(function(input, output, session) {                                  
       ylab = "Intensity (0-1 grayscale/px)",
       caption = paste0("BASIN session ID: ", values$sessionID)
     ) + 
-    rotate_x_text(angle = 60) 
+      rotate_x_text(angle = 60) 
     # +
     # scale_x_discrete(labels = rep(c(input$img1Condition, input$img2Condition), 3))
   })
@@ -1012,7 +1140,7 @@ shinyServer(function(input, output, session) {                                  
       combine = FALSE,
       merge = TRUE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       title = "Barplot 2. Object Counts",
       subtitle = "post-thresholded, all objects included",
       # add = "mean_se",
@@ -1021,12 +1149,13 @@ shinyServer(function(input, output, session) {                                  
       ylab = "Intensity (0-1 grayscale/px)",
       caption = paste0("BASIN session ID: ", values$sessionID)
     ) + 
-    rotate_x_text(angle = 60) 
+      rotate_x_text(angle = 60) 
     # +
     # scale_x_discrete(labels = rep(c(input$img1Condition, input$img2Condition), 3))
   })
   
   boxplot3 <- reactive({
+    outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$objectMeanData,
       x = "biocondition",
@@ -1034,15 +1163,16 @@ shinyServer(function(input, output, session) {                                  
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       facet.by = "experiment",
       panel.labs = list(experiment = paste0(
         "E",levels(as.factor(values$objectMeanData$experiment)))),
       title = "Boxplot 3. Object Mean Intensities",
       xlab = FALSE,
       ylab = "Intensity (0-1 grayscale)",
+      outlier.shape = outliers
       # ylim = c(0,max(values$featuresDF.all$b.mean)*1.25)
-      ) +
+    ) +
       rotate_x_text(angle = 60) +
       stat_compare_means(aes(
         label = paste0("p = ", ..p.format..)),
@@ -1065,6 +1195,7 @@ shinyServer(function(input, output, session) {                                  
   })
   
   boxplot4 <- reactive({
+    outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$objectAreaData,
       x = "biocondition",
@@ -1072,14 +1203,15 @@ shinyServer(function(input, output, session) {                                  
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
-      palette = c("cornflowerblue","green3","salmon"),
+      palette = values$colorCode,
       facet.by = "experiment",
       panel.labs = list(experiment = paste0(
         "E",levels(as.factor(values$objectAreaData$experiment)))),
       title = "Boxplot 4. Object Areas",
       xlab = FALSE,
-      ylab = "Area (pixels)"
-      ) +
+      ylab = "Area (pixels)",
+      outlier.shape = outliers
+    ) +
       rotate_x_text(angle = 60) +
       stat_compare_means(aes(
         label = paste0("p = ", ..p.format..)),
@@ -1128,59 +1260,70 @@ shinyServer(function(input, output, session) {                                  
   
 
   observeEvent(input$gotoViewer, {                                              # Confirmation for Extractor Module
-    if(input$chooseProjDir != 0){
-      id <- format.POSIXct(Sys.time(), format = "%m-%d-%Y-%H%M%S")              # Set unique id for each run under new conditions
-      extractDir <- paste0(getwd(),"/Extractor")                                # Check for existing Extractor folder and subfolders
-      rawDir <- paste0(getwd(),"/Extractor/Thresh_Data",id)
-      analyzeDir <- paste0(getwd(),"/Extractor/Analysis_Results")
-      maskDir <- paste0(getwd(), "/Extractor/Image_Masks")
-      redMasks <- paste0(maskDir, "/Red")
-      greenMasks <- paste0(maskDir, "/Green")
-      blueMasks <- paste0(maskDir, "/Blue")
-      if(!dir.exists(extractDir)){
-        dir.create(extractDir)
+    withProgress(message = 'Saving Extraction and Analysis Results', value = 0, {
+      if(input$chooseProjDir != 0){
+        id <- format.POSIXct(Sys.time(), format = "%m-%d-%Y-%H%M%S")              # Set unique id for each run under new conditions
+        extractDir <- paste0(getwd(),"/Extractor")                                # Check for existing Extractor folder and subfolders
+        rawDir <- paste0(getwd(),"/Extractor/Thresh_Data",id)
+        analyzeDir <- paste0(getwd(),"/Extractor/Analysis_Results")
+        maskDir <- paste0(getwd(), "/Extractor/Image_Masks")
+        redMasks <- paste0(maskDir, "/Red")
+        greenMasks <- paste0(maskDir, "/Green")
+        blueMasks <- paste0(maskDir, "/Blue")
+        if(!dir.exists(extractDir)){
+          dir.create(extractDir)
+        }
+        if(!dir.exists(rawDir)){
+          dir.create(rawDir)
+        }
+        if(!dir.exists(analyzeDir)){
+          dir.create(analyzeDir)
+        }
+        if(!dir.exists(maskDir)){
+          dir.create(maskDir)
+          dir.create(redMasks)
+          dir.create(greenMasks)
+          dir.create(blueMasks)
+        }
+        
+        incProgress(amount = 0.33, message = "Saving Image Masks")
+        # save a copy of all image masks to the output folder
+        masks.r <- lapply(values$imgs.r.thresholded, function(x){colormap(x, palette=c("white","red"))})
+        masks.g <- lapply(values$imgs.g.thresholded, function(x){colormap(x, palette=c("white","green"))})
+        masks.b <- lapply(values$imgs.b.thresholded, function(x){colormap(x, palette=c("white","blue"))})
+        for(i in seq_along(masks.r)){
+          writeImage(masks.r[[i]], files = file.path(redMasks,values$img.files[i]), type = "jpeg", quality = 80)
+          writeImage(masks.g[[i]], files = file.path(greenMasks,values$img.files[i]), type = "jpeg", quality = 80)
+          writeImage(masks.b[[i]], files = file.path(blueMasks, values$img.files[i]), type = "jpeg", quality = 80)
+        }
+        
+        incProgress(amount = 0.67, message = "Saving Tables")
+        
+        
+        write.csv(ldply(req(values$features.r), .id = "filename"),                # Copy all raw data into Thresh_Data subfolder
+                  file = paste0(rawDir,"/redFrameImageData.csv"))
+        write.csv(ldply(req(values$features.g), .id = "filename"), 
+                  file = paste0(rawDir,"/greenFrameImageData.csv"))
+        write.csv(ldply(req(values$features.b), .id = "filename"), 
+                  file = paste0(rawDir,"/blueFrameImageData.csv"))
+        write.csv(req(values$barplotData), 
+                  file = paste0(rawDir,"/imageMetadata.csv"))
+        write.csv(req(values$objectMeanResults),                                  # Copy all analysis data into Analysis_Results subfolder
+                  file = paste0(analyzeDir,"/meanDataTtest.csv"))
+        write.csv(req(values$objectAreaResults), 
+                  file = paste0(analyzeDir,"/objectAreaTtest.csv"))
+        write.csv(req(values$differenceData),
+                  file = file.path(analyzeDir,"intensityAndCountDifferences.csv"))
+        
+        file.create("Extractor/Log.txt")                                          # Create log file with Extractor info
+        log <- file("Extractor/Log.txt", open = "a+")
+        extractInfo <- paste(                                                     # Format extraction parameters and extraction ID
+          "Extraction",id,"autothreshold method:",input$thresh.auto)
+        # logInfo <- c("EXTRACTOR",extractInfo)
+        writeLines(extractInfo, con = log)
+        close(log)
       }
-      if(!dir.exists(rawDir)){
-        dir.create(rawDir)
-      }
-      if(!dir.exists(analyzeDir)){
-        dir.create(analyzeDir)
-      }
-      if(!dir.exists(maskDir)){
-        dir.create(maskDir)
-        dir.create(redMasks)
-        dir.create(greenMasks)
-        dir.create(blueMasks)
-      }
-      
-      # save a copy of all image masks to the output folder
-      for(i in seq_along(values$imgs.r.thresholded)){
-        writeImage(values$imgs.r.thresholded[[i]], files = file.path(redMasks,values$img.files[i]), type = "jpeg", quality = 80)
-        writeImage(values$imgs.g.thresholded[[i]], files = file.path(greenMasks,values$img.files[i]), type = "jpeg", quality = 80)
-        writeImage(values$imgs.b.thresholded[[i]], files = file.path(blueMasks, values$img.files[i]), type = "jpeg", quality = 80)
-      }
-      
-      write.csv(ldply(req(values$features.r), .id = "filename"),                # Copy all raw data into Thresh_Data subfolder
-                file = paste0(rawDir,"/redFrameImageData.csv"))
-      write.csv(ldply(req(values$features.g), .id = "filename"), 
-                file = paste0(rawDir,"/greenFrameImageData.csv"))
-      write.csv(ldply(req(values$features.b), .id = "filename"), 
-                file = paste0(rawDir,"/blueFrameImageData.csv"))
-      write.csv(req(values$barplotData), 
-                file = paste0(rawDir,"/imageMetadata.csv"))
-      write.csv(req(values$objectMeanResults),                                  # Copy all analysis data into Analysis_Results subfolder
-                file = paste0(analyzeDir,"/meanDataTtest.csv"))
-      write.csv(req(values$objectAreaResults), 
-                file = paste0(analyzeDir,"/objectAreaTtest.csv"))
-
-      file.create("Extractor/Log.txt")                                          # Create log file with Extractor info
-      log <- file("Extractor/Log.txt", open = "a+")
-      extractInfo <- paste(                                                     # Format extraction parameters and extraction ID
-        "Extraction",id,"autothreshold method:",input$thresh.auto)
-      # logInfo <- c("EXTRACTOR",extractInfo)
-      writeLines(extractInfo, con = log)
-      close(log)
-    }
+    })
   })
   
   ##################################
@@ -1207,33 +1350,36 @@ shinyServer(function(input, output, session) {                                  
     output <- lapply(values$img.files, function(x){
       c <- values$img.files == x                                                # Logical vector for image selection
       selectedImg <- values$imgs[c][[1]]                                        # Selecting all corresponding image frames
-      selectedImg.r <- values$imgs.r.clrd[c][[1]]
-      selectedImg.g <- values$imgs.g.clrd[c][[1]]
-      selectedImg.b <- values$imgs.b.clrd[c][[1]]
-      selectedImg.r.th <- values$imgs.r.th[c][[1]]
-      selectedImg.g.th <- values$imgs.g.th[c][[1]]
-      selectedImg.b.th <- values$imgs.b.th[c][[1]]
+      selectedImg.r <- EBImage::channel(values$imgs.r[c][[1]],"asred")                                 # use req() to ensure thresholding button has been clicked
+      selectedImg.g <- EBImage::channel(values$imgs.g[c][[1]],"asgreen")
+      selectedImg.b <- EBImage::channel(values$imgs.b[c][[1]],"asblue")
+      selectedImg.r.th <- EBImage::channel(values$imgs.r.thresholded[c][[1]],"asred")
+      selectedImg.g.th <- EBImage::channel(values$imgs.g.thresholded[c][[1]],"asgreen")
+      selectedImg.b.th <- EBImage::channel(values$imgs.b.thresholded[c][[1]],"asblue")
       selectedImg.r.clbl <- values$imgs.r.clrlabel[c][[1]]
       selectedImg.g.clbl <- values$imgs.g.clrlabel[c][[1]]
       selectedImg.b.clbl <- values$imgs.b.clrlabel[c][[1]]
       selectedImg.r.pntd <- values$imgs.r.pntd[c][[1]]
       selectedImg.g.pntd <- values$imgs.g.pntd[c][[1]]
       selectedImg.b.pntd <- values$imgs.b.pntd[c][[1]]
-
-      blankSpot <- Image(                                                       # Blank canvas for formatting
-        matrix("white", dim(selectedImg)[1], dim(selectedImg)[2]))
-        EBImage::combine(                                                       # Formatted Image display
-          blankSpot, selectedImg, blankSpot,
-          selectedImg.r, selectedImg.g, selectedImg.b,
-          selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
-          selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
-          selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
-        )
+      
+      # blank canvas for formatting
+      blankSpot <- Image(matrix("white", dim(selectedImg)[1], dim(selectedImg)[2]))
+      # Formatted Image 
+      tryCatch({EBImage::combine(
+        blankSpot, selectedImg, blankSpot,
+        selectedImg.r, selectedImg.g, selectedImg.b,
+        selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
+        selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
+        selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
+      )}, error = function(cond){
+        blankSpot
+      })
     })
     mapply(function(x,lbl){
       EBImage::display(
         x, nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE)
-
+      
       text(x = (10 + x@dim[1] + x@dim[1]/2), y = -10, label = lbl,              # Vertical Labels
            adj = c(0.5, 0), col = "black", cex = 1)
       text(x = -10, y = (10 + x@dim[2] + x@dim[2]/2), label = "Frame", 
@@ -1254,10 +1400,17 @@ shinyServer(function(input, output, session) {                                  
   })
   
   output$extractorText <- renderUI({
-    line1 <- paste0(
-      "1. Image frames were thresholded using the following method: ", 
-      input$thresh.auto, " for ", input$imgsRedStain, " stain, ",
-      input$imgsGreenStain, " stain, and ", input$imgsBlueStain,  " stain.")
+    if(input$mlThresh != "None"){
+      line1 <- paste0(
+        "1. Image frames were thresholded using the following method: ", 
+        input$mlThresh, " for ", input$imgsRedStain, " stain, ",
+        input$imgsGreenStain, " stain, and ", input$imgsBlueStain,  " stain.")      
+    } else {
+      line1 <- paste0(
+        "1. Image frames were thresholded using the following method: ", 
+        input$thresh.auto, " for ", input$imgsRedStain, " stain, ",
+        input$imgsGreenStain, " stain, and ", input$imgsBlueStain,  " stain.")
+    }
     line2 <- paste(
       "2. Images were grouped into", length(values$groupedExperimentTable),
       " experimental group(s) and split by biocondition - 'control' or 'test' 
@@ -1266,7 +1419,7 @@ shinyServer(function(input, output, session) {                                  
     for(exp in values$groupedExperimentTable){
       line3 <- c(line3,paste0("    Experimental Group ",exp$experiment[1],": ",exp$filename, 
                               " with the biocondition ",exp$biocondition)
-                 )
+      )
     }
     line4 <- paste0("Staining Info: ")
     line5 <- paste0(
@@ -1278,15 +1431,12 @@ shinyServer(function(input, output, session) {                                  
     line7 <- paste0(
       "  c. ", input$imgsBlueStain, ": ", input$b.intensity.altHypothesis, 
       " for mean intensity and ", input$b.area.altHypothesis, " for area") 
-    # line6 <- paste("3. User chose to exclude from t-testing:")
-    # line7 <- paste0("  a. ", input$imgsRedStain, " objects with area less than ", input$minMaxObjectArea.r[1], " and greater than ", input$minMaxObjectArea.r[2], " pixels ")
-    # line8 <- paste0("  b. ", input$imgsGreenStain, " objects with area less than ", input$minMaxObjectArea.g[1], " and greater than ", input$minMaxObjectArea.g[2], " pixels ")
-    # line9 <- paste0("  c. ", input$imgsBlueStain, " objects with area less than ", input$minMaxObjectArea.b[1], " and greater than ", input$minMaxObjectArea.b[2], " pixels ")
     HTML(paste(
       c(line1, line2, line3, line4, line5, line6, line7),collapse = '<br/>'))
   })
   
   extractorInterpret1 <- reactive({
+    safesignif <- possibly(signif, NULL)
     splitMeanResults <- split(
       x = req(values$objectMeanResults), f = values$objectMeanResults$experiment)
     splitAreaResults <- split(
@@ -1295,187 +1445,199 @@ shinyServer(function(input, output, session) {                                  
       alt.r <- x$Ha[1]
       alt.g <- x$Ha[2]
       alt.b <- x$Ha[3]
-      p.r <- signif(x$"p-value"[1],3)
-      p.g <- signif(x$"p-value"[2],3)
-      p.b <- signif(x$"p-value"[3],3)
+      p.r <- safesignif(x$"p-value"[1],3)
+      p.g <- safesignif(x$"p-value"[2],3)
+      p.b <- safesignif(x$"p-value"[3],3)
       e <- x$experiment[1]
       # Red Frame Interpretation
-      if(p.r <= 0.05){
-        if(alt.r == "two.sided"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we can 
+      if(!is.null(p.r) & !is.na(p.r)){
+        if(p.r <= 0.05){
+          if(alt.r == "two.sided"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we can 
             reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object intensities for the Experiment", e, input$imgsRedStain,
-            "stain control and test groups are not equal.", sep = " ")
-        }else if(alt.r == "less"){
-          redConclusion <- paste0(
-            "With a p-value of",p.r,"and a significance level of 0.05, we can 
+              "stain control and test groups are not equal.", sep = " ")
+          }else if(alt.r == "less"){
+            redConclusion <- paste0(
+              "With a p-value of",p.r,"and a significance level of 0.05, we can 
             reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object intensities for the", e, input$imgsRedStain,
-            "stain control group is less than the mean object intensities of 
+              "stain control group is less than the mean object intensities of 
             the test group.", sep = " ")
-        }else if(alt.r == "greater"){
-          redConclusion <- paste0(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          }else if(alt.r == "greater"){
+            redConclusion <- paste0(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically 
             significant evidence to support the alternative hypothesis that 
             the mean object intensities for the", e, input$imgsRedStain, 
-            "stain control group is greater than the mean object intensities 
+              "stain control group is greater than the mean object intensities 
             of the test group.", sep = " ")
+          }else{
+            redConclusion <- paste0(
+              "The mean object intensities for the", input$imgsRedStain, 
+              "stain control and test groups were not tested.", sep = " ")
+          }
         }else{
-          redConclusion <- paste0(
-            "The mean object intensities for the", input$imgsRedStain, 
-            "stain control and test groups were not tested.", sep = " ")
-        }
-      }else{
-        if(alt.r == "two.sided"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          if(alt.r == "two.sided"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsRedStain, "stain control and test 
             groups are equal.", sep = " ")
-        }else if(alt.r == "less"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          }else if(alt.r == "less"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsRedStain, "stain control group is less 
             than the mean object intensities of the test group.", sep = " ")
-        }else if(alt.r == "greater"){
-          redConclusion <- paste(
-            "With a p-value of",p.r,"and a significance level of 0.05, we 
+          }else if(alt.r == "greater"){
+            redConclusion <- paste(
+              "With a p-value of",p.r,"and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsRedStain, "stain control group is 
             greater than the mean object intensities of the test group.", 
-            sep = " ")
-        }else{
-          redConclusion <- paste0(
-            "The mean object intensities for the", input$imgsRedStain, 
-            "stain control and test groups were not tested.", sep = " ")
+              sep = " ")
+          }else{
+            redConclusion <- paste0(
+              "The mean object intensities for the", input$imgsRedStain, 
+              "stain control and test groups were not tested.", sep = " ")
+          }
         }
+      } else{
+        redConclusion <- "Not tested due to insufficient quantity of observations."
       }
-      # Green Frame Interpretation
-      if(p.g <= 0.05){
-        if(alt.g == "two.sided"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+      if(!is.null(p.g) & !is.na(p.g)){
+        # Green Frame Interpretation
+        if(p.g <= 0.05){
+          if(alt.g == "two.sided"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically 
             significant evidence to support the alternative hypothesis that 
             the mean object intensities for the Experiment", e, 
-            input$imgsGreenStain,"stain control and test groups are not 
+              input$imgsGreenStain,"stain control and test groups are not 
             equal.", sep = " ")
-        }else if(alt.g == "less"){
-          greenConclusion <- paste0(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "less"){
+            greenConclusion <- paste0(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically 
             significant evidence to support the alternative hypothesis that 
             the mean object intensities for the", e, input$imgsGreenStain,
-            "stain control group is less than the mean object intensities of 
+              "stain control group is less than the mean object intensities of 
             the test group.", sep = " ")
-        }else if(alt.g == "greater"){
-          greenConclusion <- paste0(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "greater"){
+            greenConclusion <- paste0(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object intensities for the", e, input$imgsGreenStain, "stain 
             control group is greater than the mean object intensities of the 
             test group.", sep = " ")
+          }else{
+            greenConclusion <- paste0(
+              "The mean object intensities for the", input$imgsGreenStain, 
+              "stain control and test groups were not tested.", sep = " ")
+          }
         }else{
-          greenConclusion <- paste0(
-            "The mean object intensities for the", input$imgsGreenStain, 
-            "stain control and test groups were not tested.", sep = " ")
-        }
-      }else{
-        if(alt.g == "two.sided"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          if(alt.g == "two.sided"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsGreenStain, "stain control and test 
             groups are equal.", sep = " ")
-        }else if(alt.g == "less"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "less"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsGreenStain, "stain control group is less 
             than the mean object intensities of the test group.", sep = " ")
-        }else if(alt.g == "greater"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "greater"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsGreenStain, "stain control group is 
             greater than the mean object intensities of the test group.", 
-            sep = " ")
-        }else{
-          greenConclusion <- paste0(
-            "The mean object intensities for the", input$imgsGreenStain, 
-            "stain control and test groups were not tested.", sep = " ")
+              sep = " ")
+          }else{
+            greenConclusion <- paste0(
+              "The mean object intensities for the", input$imgsGreenStain, 
+              "stain control and test groups were not tested.", sep = " ")
+          }
         }
+      } else{
+        greenConclusion <- "Not tested due to insufficient quantity of observations."
       }
-      # Blue Frame Interpretation
-      if(p.b <= 0.05){
-        if(alt.b == "two.sided"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+      if(!is.null(p.b) & !is.na(p.b)){
+        # Blue Frame Interpretation
+        if(p.b <= 0.05){
+          if(alt.b == "two.sided"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object intensities for the Experiment", e, input$imgsGreenStain,
-            "stain control and test groups are not equal.", sep = " ")
-        }else if(alt.b == "less"){
-          blueConclusion <- paste0(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+              "stain control and test groups are not equal.", sep = " ")
+          }else if(alt.b == "less"){
+            blueConclusion <- paste0(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically 
             significant evidence to support the alternative hypothesis that 
             the mean object intensities for the", e, input$imgsGreenStain, 
-            "stain control group is less than the mean object intensities of 
+              "stain control group is less than the mean object intensities of 
             the test group.", sep = " ")
-        }else if(alt.b == "greater"){
-          blueConclusion <- paste0(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }else if(alt.b == "greater"){
+            blueConclusion <- paste0(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object intensities for the", e, input$imgsGreenStain, "stain 
             control group is greater than the mean object intensities of the 
             test group.", sep = " ")
+          }else{
+            blueConclusion <- paste0(
+              "The mean object intensities for the", input$imgsGreenStain, 
+              "stain control and test groups were not tested.", sep = " ")
+          }
         }else{
-          blueConclusion <- paste0(
-            "The mean object intensities for the", input$imgsGreenStain, 
-            "stain control and test groups were not tested.", sep = " ")
-        }
-      }else{
-        if(alt.b == "two.sided"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          if(alt.b == "two.sided"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsGreenStain, "stain control and test 
             groups are equal.", sep = " ")
-        }else if(alt.b == "less"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }else if(alt.b == "less"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsGreenStain, "stain control group is less 
             than the mean object intensities of the test group.", sep = " ")
-        }else if(alt.b == "greater"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }else if(alt.b == "greater"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object intensities for the 
             Experiment", e, input$imgsGreenStain, "stain control group is 
             greater than the mean object intensities of the test group.", 
-            sep = " ")
-        }else{
-          blueConclusion <- paste0(
-            "The mean object intensities for the", input$imgsGreenStain, "stain 
+              sep = " ")
+          }else{
+            blueConclusion <- paste0(
+              "The mean object intensities for the", input$imgsGreenStain, "stain 
             control and test groups were not tested.", sep = " ")
+          }
         }
+      } else{
+        blueConclusion <- "Not tested due to insufficient quantity of observations."
       }
       line1 <- paste0("<br/>"," Experiment ",e,": ")
       line2 <- paste0("1. ", redConclusion)
@@ -1487,179 +1649,191 @@ shinyServer(function(input, output, session) {                                  
       alt.r <- x$Ha[1]
       alt.g <- x$Ha[2]
       alt.b <- x$Ha[3]
-      p.r <- signif(x$"p-value"[1],3)
-      p.g <- signif(x$"p-value"[2],3)
-      p.b <- signif(x$"p-value"[3],3)
+      p.r <- safesignif(x$"p-value"[1],3)
+      p.g <- safesignif(x$"p-value"[2],3)
+      p.b <- safesignif(x$"p-value"[3],3)
       e <- x$experiment[1]
       # Red Frame Interpretation
-      if(p.r <= 0.05){
-        if(alt.r == "two.sided"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we can 
+      if(!is.null(p.r) & !is.na(p.r)){
+        if(p.r <= 0.05){
+          if(alt.r == "two.sided"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we can 
             reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean object 
             areas for the Experiment", e, input$imgsRedStain, "stain control 
             and test groups are not equal.", sep = " ")
-        }else if(alt.r == "less"){
-          redConclusion <- paste0(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          }else if(alt.r == "less"){
+            redConclusion <- paste0(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean object 
             areas for the", e, input$imgsRedStain, "stain control group is 
             less than the mean object areas of the test group.", sep = " ")
-        }else if(alt.r == "greater"){
-          redConclusion <- paste0(
-            "With a p-value of", p.r, "and a significance level of 0.05, we can 
+          }else if(alt.r == "greater"){
+            redConclusion <- paste0(
+              "With a p-value of", p.r, "and a significance level of 0.05, we can 
             reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean object 
             areas for the", e, input$imgsRedStain, "stain control group is 
             greater than the mean object areas of the test group.", sep = " ")
-        }else{
-          redConclusion <- paste0(
-            "The object areas for the", input$imgsRedStain, "stain control and 
+          }else{
+            redConclusion <- paste0(
+              "The object areas for the", input$imgsRedStain, "stain control and 
             test groups were not tested.", sep = " ")
-        }
-      }else{
-        if(alt.r == "two.sided"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          }
+        }else{
+          if(alt.r == "two.sided"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsRedStain, "stain control and test groups 
             are equal.", sep = " ")
-        }else if(alt.r == "less"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          }else if(alt.r == "less"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsRedStain, "stain control group is less 
             than the mean object areas of the test group.", sep = " ")
-        }else if(alt.r == "greater"){
-          redConclusion <- paste(
-            "With a p-value of", p.r, "and a significance level of 0.05, we 
+          }else if(alt.r == "greater"){
+            redConclusion <- paste(
+              "With a p-value of", p.r, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsRedStain, "stain control group is 
             greater than the mean object areas of the test group.", sep = " ")
-        }else{
-          redConclusion <- paste0(
-            "The object areas for the", input$imgsRedStain, "stain control 
+          }else{
+            redConclusion <- paste0(
+              "The object areas for the", input$imgsRedStain, "stain control 
             and test groups were not tested.", sep = " ")
+          }
         }
+      } else{
+        redConclusion <- "Not tested due to insufficient quantity of observations."
       }
-      # Green Frame Interpretation
-      if(p.g <= 0.05){
-        if(alt.g == "two.sided"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+      if(!is.null(p.g) & !is.na(p.g)){
+        # Green Frame Interpretation
+        if(p.g <= 0.05){
+          if(alt.g == "two.sided"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object areas for the Experiment", e, input$imgsGreenStain, "stain 
             control and test groups are not equal.", sep = " ")
-        }else if(alt.g == "less"){
-          greenConclusion <- paste0(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "less"){
+            greenConclusion <- paste0(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object areas for the", e, input$imgsGreenStain, "stain control 
             group is less than the mean object areas of the test group.", 
-            sep = " ")
-        }else if(alt.g == "greater"){
-          greenConclusion <- paste0(
-            "With a p-value of", p.g, "and a significance level of 0.05, we can 
+              sep = " ")
+          }else if(alt.g == "greater"){
+            greenConclusion <- paste0(
+              "With a p-value of", p.g, "and a significance level of 0.05, we can 
             reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean object 
             areas for the", e, input$imgsGreenStain,"stain control group is 
             greater than the mean object areas of the test group.", sep = " ")
-        }else{
-          greenConclusion <- paste0(
-            "The object areas for the", input$imgsGreenStain, "stain control 
+          }else{
+            greenConclusion <- paste0(
+              "The object areas for the", input$imgsGreenStain, "stain control 
             and test groups were not tested.", sep = " ")
-        }
-      }else{
-        if(alt.g == "two.sided"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }
+        }else{
+          if(alt.g == "two.sided"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsGreenStain, "stain control and test 
             groups are equal.", sep = " ")
-        }else if(alt.g == "less"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "less"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsGreenStain, "stain control group is less 
             than the mean object areas of the test group.", sep = " ")
-        }else if(alt.g == "greater"){
-          greenConclusion <- paste(
-            "With a p-value of", p.g, "and a significance level of 0.05, we 
+          }else if(alt.g == "greater"){
+            greenConclusion <- paste(
+              "With a p-value of", p.g, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsGreenStain, "stain control group is 
             greater than the mean object areas of the test group.", sep = " ")
-        }else{
-          greenConclusion <- paste0(
-            "The object areas for the", input$imgsGreenStain, "stain control 
+          }else{
+            greenConclusion <- paste0(
+              "The object areas for the", input$imgsGreenStain, "stain control 
             and test groups were not tested.", sep = " ")
+          }
         }
+      } else{
+        greenConclusion <- "Not tested due to insufficient quantity of observations."
       }
-      # Blue Frame Interpretation
-      if(p.b <= 0.05){
-        if(alt.b == "two.sided"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+      if(!is.null(p.b) & !is.na(p.b)){
+        # Blue Frame Interpretation
+        if(p.b <= 0.05){
+          if(alt.b == "two.sided"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object areas for the Experiment", e, input$imgsGreenStain, "stain 
             control and test groups are not equal.", sep = " ")
-        }else if(alt.b == "less"){
-          blueConclusion <- paste0(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }else if(alt.b == "less"){
+            blueConclusion <- paste0(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             can reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean 
             object areas for the", e, input$imgsGreenStain, "stain control 
             group is less than the mean object areas of the test group.", 
-            sep = " ")
-        }else if(alt.b == "greater"){
-          blueConclusion <- paste0(
-            "With a p-value of", p.b, "and a significance level of 0.05, we can 
+              sep = " ")
+          }else if(alt.b == "greater"){
+            blueConclusion <- paste0(
+              "With a p-value of", p.b, "and a significance level of 0.05, we can 
             reject the null hypothesis. There is statistically significant 
             evidence to support the alternative hypothesis that the mean object 
             areas for the", e, input$imgsGreenStain, "stain control group is 
             greater than the mean object areas of the test group.", sep = " ")
-        }else{
-          blueConclusion <- paste0(
-            "The object areas for the", input$imgsGreenStain, "stain control 
+          }else{
+            blueConclusion <- paste0(
+              "The object areas for the", input$imgsGreenStain, "stain control 
             and test groups were not tested.", sep = " ")
-        }
-      }else{
-        if(alt.b == "two.sided"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }
+        }else{
+          if(alt.b == "two.sided"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsGreenStain, "stain control and test 
             groups are equal.", sep = " ")
-        }else if(alt.b == "less"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }else if(alt.b == "less"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsGreenStain, "stain control group is less 
             than the mean object areas of the test group.", sep = " ")
-        }else if(alt.b == "greater"){
-          blueConclusion <- paste(
-            "With a p-value of", p.b, "and a significance level of 0.05, we 
+          }else if(alt.b == "greater"){
+            blueConclusion <- paste(
+              "With a p-value of", p.b, "and a significance level of 0.05, we 
             fail to reject the null hypothesis. There is not enough evidence 
             to support the claim that the mean object areas for the 
             Experiment", e, input$imgsGreenStain, "stain control group is 
             greater than the mean object areas of the test group.", sep = " ")
-        }else{
-          blueConclusion <- paste0(
-            "The object areas for the", input$imgsGreenStain, "stain control 
+          }else{
+            blueConclusion <- paste0(
+              "The object areas for the", input$imgsGreenStain, "stain control 
             and test groups were not tested.", sep = " ")
+          }
         }
+      } else{
+        blueConclusion <- "Not tested due to insufficient quantity of observations."
       }
       line1 <- paste0("<br/>"," Experiment ",e,": ")
       line2 <- paste0("1. ", redConclusion)
@@ -1731,8 +1905,10 @@ shinyServer(function(input, output, session) {                                  
   # REPORTER MODULE #
   ###################
   
+  reportAuthor <- reactive({input$reportAuthor})
+  reportTitle <- reactive({input$reportTitle})
+  
   # Markdown document for full report
-  options(tinytex.verbose = TRUE)
   output$downloadFullReport <- downloadHandler(
     filename = function() {
       paste('my_figure', sep = '.', 
@@ -1740,16 +1916,35 @@ shinyServer(function(input, output, session) {                                  
               input$format, HTML = 'html', PDF = 'pdf', Word = 'docx'))
     },
     content = function(file) {
-      src <- file.path(reportsDir, "fullReport.Rmd")
-      owd <- setwd(tempdir())                                                   # temporarily switch to the temp dir, in case you do not have write permission to the current working directory
-      on.exit(expr = setwd(owd))
-      file.copy(src, 'fullReport.Rmd', overwrite = TRUE)
-      library(rmarkdown)
-      out <- render('fullReport.Rmd', switch(
-        input$format,
-        HTML = html_document(), PDF = pdf_document(), Word = word_document()
-      ))
-      file.rename(out, file)
+      withProgress(value = 0.5, message = "Generating Report. This may take a few minutes.",{
+        src <- file.path(reportsDir, "fullReport.Rmd")
+        basinOutDir <- getwd()
+        owd <- setwd(tempdir())                                                   # temporarily switch to the temp dir, in case you do not have write permission to the current working directory
+        on.exit(expr = setwd(owd))
+        file.copy(src, 'fullReport.Rmd', overwrite = TRUE)
+        pandoc_toc_args(toc = TRUE, toc_depth = 2)
+        out <- render('fullReport.Rmd', switch(
+          input$format,
+          HTML = html_document(), PDF = pdf_document(), Word = word_document()
+        ))
+        # save a copy of HTML and Word into output folder if it exists
+        if(input$chooseProjDir != 0){
+          path <- file.path(basinOutDir,"Reporter")
+          if(!dir.exists(path)){
+            dir.create(path)
+          }
+          if(input$format == "HTML"){
+            file.copy(out, file.path(path, "full_report.html"))
+            render('fullReport.Rmd', output_format = word_document(),output_file = "full_report.docx", output_dir = path)
+          } else if(input$format == "Word"){
+            file.copy(out, file.path(path, "full_report.docx"))
+            render('fullReport.Rmd', output_format = html_document(),output_file = "full_report.html", output_dir = path)
+          } else {
+            render('fullReport.Rmd', output_format = word_document(),output_file = "full_report.docx", output_dir = path)
+          }
+        }
+        file.rename(out, file)
+      })
     }
   )
   

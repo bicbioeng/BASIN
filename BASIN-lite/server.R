@@ -86,34 +86,6 @@ alternative <- function(x){
   }
 }
 
-tf_unet_segmentation <- function(imgs, model){                                  # Image segmentation using TF Unet model
-  dims <- model$input$shape
-  # convert all images to grayscale and resize to match model input dims
-  imgs_formatted <- lapply(imgs, function(x){
-    resize(x, w = dims[[2]], h = dims[[3]])
-  })
-
-  # reshape to match model inputs
-  img_array <- array_reshape(imgs_formatted,dim = c(length(imgs),dims[[2]],dims[[3]],dims[[4]]))
-
-  # rescale pixel intensities
-  img_array <- img_array * 255
-  
-  # generate segmentation masks for the image arrays
-  preds <- model$predict(img_array)
-  preds <- alply(preds,1,EBImage::as.Image)
-  
-  # resize back to original dimensions
-  for(i in seq_along(preds)){
-    w = dim(imgs[[i]])[1]
-    h = dim(imgs[[i]])[2]
-    preds[[i]] <- resize(preds[[i]], w = w, h = h)
-  }
-  return(preds)
-}
-
-options(shiny.maxRequestSize = 300*1024^2)                                      # For fileInput object max size (300 MB)
-
 shinyServer(function(input, output, session) {                                  # Defines the server-side logic of the Shiny application.
   
   values <- reactiveValues()                                                    # Creates an object for storing reactive values. Variables stored in  
@@ -782,13 +754,6 @@ shinyServer(function(input, output, session) {                                  
       experiment.g.results <- safeTest(controlGroup.g, testGroup.g)
       experiment.b.results <- safeTest(controlGroup.b, testGroup.b)
        
-      # result <- rbind(                                                          # Bind results as one data frame
-      #   redFrame = tTestToDataFrame(
-      #     experiment.r.results,input$imgsRedStain,altHypothesis),
-      #   greenFrame = tTestToDataFrame(
-      #     experiment.g.results,input$imgsGreenStain,altHypothesis),
-      #   blueFrame = tTestToDataFrame(
-      #     experiment.b.results,input$imgsBlueStain,altHypothesis))
       # Bind results as one data frame
       redFrame = tTestToDataFrame(
         experiment.r.results,red, altHypothesis)
@@ -1367,9 +1332,6 @@ shinyServer(function(input, output, session) {                                  
       p.b <- safesignif(x$"p-value"[3],3)
       e <- x$experiment[1]
       # Red Frame Interpretation
-      print(p.r)
-      print(p.b)
-      print(p.g)
       if(!is.null(p.r) & !is.na(p.r)){
         if(p.r <= 0.05){
           if(alt.r == "two.sided"){
