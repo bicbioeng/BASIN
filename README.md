@@ -4,7 +4,7 @@ for statistical analysis of two-dimensional confocal microscope images. Users
 can upload two images directly or a folder of images with the help of a
 user-generated csv file, edit their experimental design, create tables and
 graphs for analysis results, and generate a fully-formatted report of their
-experiment. For more information on BASIN, check out our documentation site[https://basin-v10.readthedocs.io/en/latest/]. For tutorials on the BASIN workflow and running the application, check out the playlists on our YouTube channel[https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh].
+experiment. For more information on BASIN, check out our documentation [site](https://basin-v10.readthedocs.io/en/latest/). For tutorials on the BASIN workflow and running the application, check out the playlists on our [YouTube channel](https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh).
 
 # BASIN Overview and Quick Tutorial
 A simplified version of BASIN is available through shinyApps at [http://bicbioeng.shinyapps.io/tryBASIN](http://bicbioeng.shinyapps.io/tryBASIN). This
@@ -20,7 +20,7 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
 ### BASIN Lite Installation:
 
 #### R Setup:
-1. Make sure you have the latest version of R[https://cran.r-project.org/] and Rstudio[https://www.rstudio.com/products/rstudio/] installed on your computer (free and open-source, available online). Rstudio is an IDE for the R programming language, and all successive steps should be ran through the Rstudio terminal.
+1. Make sure you have the latest version of [R](https://cran.r-project.org/) and [Rstudio](https://www.rstudio.com/products/rstudio/) installed on your computer (free and open-source, available online). Rstudio is an IDE for the R programming language, and all successive steps should be ran through the Rstudio terminal.
 2. Install the required R and Bioconductor packages using the following commands:
   `install.packages(c("purrr", "plyr", "shiny", "shinyBS", "shinyjs",
     "shinydashboard", "shinycssloaders", "shinythemes", "shinyWidgets",
