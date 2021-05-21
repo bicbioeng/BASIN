@@ -6,16 +6,37 @@ user-generated csv file, edit their experimental design, create tables and
 graphs for analysis results, and generate a fully-formatted report of their
 experiment. For more information on BASIN, check out our documentation site[https://basin-v10.readthedocs.io/en/latest/]. For tutorials on the BASIN workflow and running the application, check out the playlists on our YouTube channel[https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh].
 
-## BASIN Overview and Quick Tutorial
+# BASIN Overview and Quick Tutorial
 A simplified version of BASIN is available through shinyApps at [http://bicbioeng.shinyapps.io/tryBASIN](http://bicbioeng.shinyapps.io/tryBASIN). This
 version only takes in 2 images, but the workflow is nearly identical to the complete version and serves as a gentle tutorial to most of BASIN's features.
  Note that for the full version of BASIN requires the user to download a csv
  containing the names of the images uploaded and assign 'control' and 'test'
  bioconditions manually, in addition to experiment number(s), which must be positive integers only.
 
-## Installation and Usage
+# Installation and Usage
 
-### Option 1: Shiny Application
+## Option 1: Shiny Application (RECOMMENDED)
+
+### BASIN Lite Installation:
+
+#### R Setup:
+1. Make sure you have the latest version of R[https://cran.r-project.org/] and Rstudio[https://www.rstudio.com/products/rstudio/] installed on your computer (free and open-source, available online). Rstudio is an IDE for the R programming language, and all successive steps should be ran through the Rstudio terminal.
+2. Install the required R and Bioconductor packages using the following commands:
+  `install.packages(c("purrr", "plyr", "shiny", "shinyBS", "shinyjs",
+    "shinydashboard", "shinycssloaders", "shinythemes", "shinyWidgets",
+    "DT", "stringi", "ggpubr", "tcltk", "autothresholdr"))`
+
+  `if (!requireNamespace("BiocManager", quietly = TRUE))`\
+    `install.packages("BiocManager") #installs Bioconductor`\
+    `BiocManager::install("EBImage") #installs EBImage`
+
+#### Running the application:
+ 1. Download the BASIN-lite folder from this github repository.
+ 2. Find the ui.R or server.R file in the folder and open it using RStudio
+ 3. At the top right corner of the opened file, there should be a green button next to the text "Run App". Use that button to start your application.
+
+### BASIN ML Installation (EXPERIMENTAL):
+BASIN-ML leverages machine learning for improved cell segmentation. This module requires both Python and R, as well as an extremely specific Python environment setup in order to function properly. Reference to external documentation is required, although we have provided all necessary links below.
 
 #### Python Setup:
 1. Install Anaconda on your local machine:
@@ -55,9 +76,13 @@ version only takes in 2 images, but the workflow is nearly identical to the comp
   `keras::use_condaenv(envPath, required=TRUE)`\
   `tensorflow::use_condaenv(envPath, required=TRUE)`
 
-  - Restart your R session and run the BASIN app from the server.R or ui.R files inside of the shinyBASIN folder.
+#### Running the application:
+ 1. Download the BASIN-ML folder from this github repository.
+ 2. Find the ui.R or server.R file in the folder and open it using RStudio
+ 3. At the top right corner of the opened file, there should be a green button next to the text "Run App". Use that button to start your application. Note that it will take a few seconds for it to load the Python environment.
+ 4. Some users experience app crashes or freezes after the first run through. You will need to restart your R session if this happens.
 
-### Option 2: Package (No Python, No ML Segmentation)
+### Option 2: Package (DEPRACATED)
 Details on the features and functionality of BASIN can be found in the BASIN
 vignette, which is accessible through the package itself. To install BASIN
 in R, download the tarball file BASIN_0.99.0.tar.gz into your local machine
