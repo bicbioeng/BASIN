@@ -51,7 +51,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
     collapsible = TRUE, selected = "Get Started", windowTitle = "tryBASIN",
     tabPanel(
       title = "Get Started",
-      tags$h1("Welcome to BASINlite!", align = "center",
+      tags$h1("Welcome to BASIN-ML!", align = "center",
               style = "position: relative; top: 0; width: 100%"),
       fillRow(
         actionButton(inputId="getOntoBIDSdata", label="Get OntoBIDS Data..."),  # Button only opens a popup at this time

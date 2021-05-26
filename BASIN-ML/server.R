@@ -7,7 +7,7 @@
 # images and CSV file to give the user information and hypothesis test results
 # related to those images. The user may then download a report of these results.
 
-library(reticulate)
+# load required libraries
 library(rmarkdown)
 options(tinytex.verbose = TRUE)
 
@@ -22,15 +22,42 @@ if (length(this_file) > 0){
 basinDir <- wd                                                             # Allows the folder containing this script to be the default working
 reportsDir <- getwd()                                                      # directory until the user chooses his or her own directory path
 
-# load the BASIN python environment
-env <- conda_list()$name == "cellpose" # "basin"
-envPath <- conda_list()[env,]$python
-envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
-reticulate::use_condaenv(envPath, required=TRUE)
-keras::use_condaenv(envPath, required=TRUE)
-tensorflow::use_condaenv(envPath, required=TRUE)
-cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","cell_segmentation_unet_model.h5"))
-#cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","retrained_segmentation_unet_maskrcnn_data.h5"))
+# load the BASIN python environment if it's not already loaded
+env <- reticulate::conda_list()$name == "basin"
+envPath <- reticulate::conda_list()[env,]$python
+# check if BASIN environment is found in default location
+if(length(envPath) == 0){
+  print("basin env not found")
+  # search for BASIN environment in default user config file
+  home <- Sys.getenv("HOME")
+  anac_home <- Sys.getenv("USERPROFILE")
+  # temporarily switch RStudio HOME directory to Anaconda's default
+  Sys.setenv("HOME" = anac_home)
+  # load BASIN's Python environment
+  env <- reticulate::conda_list()$name == "basin"
+  envPath <- reticulate::conda_list()[env,]$python
+  # check if BASIN's Python environment is loaded
+  if(reticulate::py_available() == FALSE){
+    print("basin env not loaded")
+    # load BASIN's Python environment
+    envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
+    reticulate::use_condaenv(envPath, required=TRUE)
+    keras::use_condaenv(envPath, required=TRUE)
+    tensorflow::use_condaenv(envPath, required=TRUE)
+  }
+  Sys.setenv("HOME" = home)
+} else {
+  print("basin env found")
+  # check if BASIN's Python environment is loaded
+  if(reticulate::py_available() == FALSE){
+    print("basin env not loaded")
+    # load BASIN's Python environment
+    envPath <- stringi::stri_replace(envPath,"",regex = "python.exe")
+    reticulate::use_condaenv(envPath, required=TRUE)
+    keras::use_condaenv(envPath, required=TRUE)
+    tensorflow::use_condaenv(envPath, required=TRUE)
+  }
+}
 
 # ensures tkwidgets show up in front-most GUI window
 tkraise(tktoplevel())
@@ -106,7 +133,7 @@ tf_unet_segmentation <- function(imgs, model){                                  
   })
 
   # reshape to match model inputs
-  img_array <- array_reshape(imgs_formatted,dim = c(length(imgs),dims[[2]],dims[[3]],dims[[4]]))
+  img_array <- reticulate::array_reshape(imgs_formatted,dim = c(length(imgs),dims[[2]],dims[[3]],dims[[4]]))
 
   # rescale pixel intensities
   img_array <- img_array * 255
@@ -395,20 +422,40 @@ shinyServer(function(input, output, session) {                                  
         values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
         values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
         values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
+        
+        incProgress(0.4,detail=paste("Labeling"))
+        
+        values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
+        values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
+        values$imgs.b.label <- lapply(values$imgs.b.thresholded, bwlabel)
+        
+        names(values$imgs.r.label) <- values$img.files
+        names(values$imgs.g.label) <- values$img.files
+        names(values$imgs.b.label) <- values$img.files
       } else if(input$mlThresh == "cellpose"){
         # creating thresholded masks using cellpose
         od <- getwd()
         setwd(basinDir)
         write(values$img.paths,file.path(basinDir,"basinCellposeImgs.txt"))
-        py_run_file(file.path(basinDir,"cellpose_segmentation_BASIN.py"))
+        reticulate::py_run_file(file.path(basinDir,"cellpose_segmentation_BASIN.py"))
         setwd(od)
-        masks_r <- lapply(py$masks_r, EBImage::as.Image)
-        masks_g <- lapply(py$masks_g, EBImage::as.Image)
-        masks_b <- lapply(py$masks_b, EBImage::as.Image)
+        masks_r <- lapply(reticulate::py$masks_r, EBImage::as.Image)
+        masks_g <- lapply(reticulate::py$masks_g, EBImage::as.Image)
+        masks_b <- lapply(reticulate::py$masks_b, EBImage::as.Image)
         values$imgs.r.thresholded <- lapply(masks_r,function(x){EBImage::flop(EBImage::rotate(x,90))})
         values$imgs.g.thresholded <- lapply(masks_g,function(x){EBImage::flop(EBImage::rotate(x,90))})
         values$imgs.b.thresholded <- lapply(masks_b,function(x){EBImage::flop(EBImage::rotate(x,90))})
+        
+        values$imgs.r.label <- values$imgs.r.thresholded
+        values$imgs.g.label <- values$imgs.g.thresholded
+        values$imgs.b.label <- values$imgs.b.thresholded
+        names(values$imgs.r.label) <- values$img.files
+        names(values$imgs.g.label) <- values$img.files
+        names(values$imgs.b.label) <- values$img.files
+        
       } else if(input$mlThresh == 'U-net'){
+        # load UNet model
+        cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","cell_segmentation_unet_model.h5"))
         # creating segmentation masks using trained U-net
         values$imgs.r.thresholded <- tf_unet_segmentation(unname(values$imgs.r), model=cell_segmentation_model)
         values$imgs.g.thresholded <- tf_unet_segmentation(unname(values$imgs.g), model=cell_segmentation_model)
@@ -416,7 +463,17 @@ shinyServer(function(input, output, session) {                                  
         # threshold results to remove low-value pixels
         values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
         values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
-        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
+        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold)
+        
+        incProgress(0.4,detail=paste("Labeling"))
+        
+        values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
+        values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
+        values$imgs.b.label <- lapply(values$imgs.b.thresholded, bwlabel)
+        
+        names(values$imgs.r.label) <- values$img.files
+        names(values$imgs.g.label) <- values$img.files
+        names(values$imgs.b.label) <- values$img.files
       } else {
         model <- model()
         # creating segmentation masks using user-loaded model
@@ -426,18 +483,18 @@ shinyServer(function(input, output, session) {                                  
         # threshold results to remove low-value pixels
         values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
         values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
-        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold) 
+        values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold)
+        
+        incProgress(0.4,detail=paste("Labeling"))
+        
+        values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
+        values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
+        values$imgs.b.label <- lapply(values$imgs.b.thresholded, bwlabel)
+        
+        names(values$imgs.r.label) <- values$img.files
+        names(values$imgs.g.label) <- values$img.files
+        names(values$imgs.b.label) <- values$img.files
       }
-      
-      incProgress(0.4,detail=paste("Labeling"))
-      
-      values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
-      values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
-      values$imgs.b.label <- lapply(values$imgs.b.thresholded, bwlabel)
-      
-      names(values$imgs.r.label) <- values$img.files
-      names(values$imgs.g.label) <- values$img.files
-      names(values$imgs.b.label) <- values$img.files
       
       values$imgs.r.clrlabel <- lapply(values$imgs.r.label, colorLabels)
       values$imgs.g.clrlabel <- lapply(values$imgs.g.label, colorLabels)
@@ -501,14 +558,18 @@ shinyServer(function(input, output, session) {                                  
               # compute cellpose mask for error img, use stain for correct channel
               channel <- c(1,2,3)
               names(channel) <- c(input$imgsRedStain,input$imgsGreenStain,input$imgsBlueStain)
-              mask <- as.array(py_call(py$compute_mask,r@.Data,channel[stain]))
+              mask <- as.array(reticulate::py_call(reticulate::py$compute_mask,r@.Data,channel[stain]))
               imgThresh <- EBImage::flop(EBImage::rotate(mask,90))
+              imgLabel <- imgThresh
             }else if(input$mlThresh == "U-net"){
+              # load UNet model
+              cell_segmentation_model <- keras::load_model_hdf5(file.path(basinDir,"www","cell_segmentation_unet_model.h5"))
               imgThresh <- tf_unet_segmentation(unname(r), model=cell_segmentation_model)
+              imgLabel <- bwlabel(imgThresh)
             }else {
               imgThresh <- autothreshold(r)
+              imgLabel <- bwlabel(imgThresh)
             }
-            imgLabel <- bwlabel(imgThresh)
             basicFeatures <- computeFeatures.basic(imgLabel, ref = r)
             # check for null features (blank images/frames)
             if(is.null(basicFeatures)){
@@ -534,7 +595,6 @@ shinyServer(function(input, output, session) {                                  
         l = labeled, r = reference, s = stain, SIMPLIFY = FALSE)
       })
     }
-    print("getting features")
     # Evaluate Features for each image's frames
     features.r <- featureExtract(
       req(values$imgs.r.label), reference = values$imgs.r, 
@@ -545,7 +605,7 @@ shinyServer(function(input, output, session) {                                  
     features.b <- featureExtract(
       req(values$imgs.b.label), reference = values$imgs.b, 
       stain = values$blueStain) #input$imgsBlueStain)
-    print("converting features")
+    
     featuresDF.r <- ldply(req(features.r), .id = "filename")             # Convert list of feature data into data frame
     featuresDF.g <- ldply(req(features.g), .id = "filename")
     featuresDF.b <- ldply(req(features.b), .id = "filename")
@@ -553,7 +613,7 @@ shinyServer(function(input, output, session) {                                  
     featuresDF.r$biocondition <- paste0(featuresDF.r$biocondition,".r")
     featuresDF.g$biocondition <- paste0(featuresDF.g$biocondition,".g")
     featuresDF.b$biocondition <- paste0(featuresDF.b$biocondition,".b")
-    print("bind all")
+    
     values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
     values$maxObjectArea <- max(values$featuresDF.all$s.area)
     
