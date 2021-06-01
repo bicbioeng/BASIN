@@ -1,7 +1,3 @@
-####################################################################################################################################################
-##############################################    tryBASIN server version 12.23.19    ##############################################################
-####################################################################################################################################################
-
 # Function to properly construct data frame of t.test results
 tTestToDataFrame <- function(results, frame, altHypo){
   if(!is.na(results[[1]])){
@@ -92,28 +88,28 @@ shinyServer(function(input, output, session) {
     ) 
   })
   
-   observeEvent(input$upload1,
-     values$img1 <- readImage(input$upload1$datapath)
-   )
+   observeEvent(input$upload1, {
+     img1 <- readImage(input$upload1$datapath)
+     if(numberOfFrames(img1) == 1){
+       img1 <- toRGB(img1)
+     } else {
+       img1 <- img1[,,1:3]
+     }
+     values$img1 <- img1
+   })
   
   observeEvent(input$upload2, {
-    values$img2 <- readImage(input$upload2$datapath)
+    img2 <- readImage(input$upload2$datapath)
+    if(numberOfFrames(img2) == 1){
+      img2 <- toRGB(img2)
+    } else {
+      img2 <- img2[,,1:3]
+    }
+    values$img2 <- img2
     values$imgsSource <- paste(
       "1. User's images were uploaded:", input$upload1$name, "for biocondition 1 and", input$upload2$name, "for biocondition 2.", sep = " "
     )
   })
-  
-
-
-  # observeEvent(input$upload1, {
-  #     unfiltered_files <- as.vector(stri_extract_all(input$upload1$name, regex = ".*jpg|.*png|.*tif", simplify = TRUE))
-  #     values$img.files <- input$upload1$name[!is.na(unfiltered_files)]
-  #     values$img.paths <- input$upload1$datapath[!is.na(unfiltered_files)]
-  #     values$imgs <- lapply(values$img.paths, readImage)
-  # })
-  
-
-  
   
   ################################################################
   # SPLIT, THRESHOLD IMAGES AND LABEL OBJECTS
@@ -178,7 +174,6 @@ shinyServer(function(input, output, session) {
     values$img2.g.pntd <- paintObjects(values$imgs.g.label[[2]], values$img2.g, col = "yellow")
     values$img2.b.pntd <- paintObjects(values$imgs.b.label[[2]], values$img2.b, col = "yellow")
     
-    # print(values$img1.r.pntd)
     ################################################################
     # FEATURE EXTRACTION
     ################################################################
@@ -241,7 +236,6 @@ shinyServer(function(input, output, session) {
     featuresDF.b <- ldply(featuresDF.b, .id = "biocondition")
     values$featuresDF.all <- rbind(featuresDF.r, featuresDF.g, featuresDF.b)
     
-    # print(str(featuresDF.r))
     # Object count determined using number of rows
     count.r <- lapply(values$features.r, nrow)
     count.g <- lapply(values$features.g, nrow)
@@ -298,6 +292,20 @@ shinyServer(function(input, output, session) {
     values$barplotData <- rbind(
       metadata.r[1,], metadata.g[1,], metadata.b[1,], metadata.r[2,], metadata.g[2,], metadata.b[2,]
     )
+    
+    # net intensity and count differences
+    netImgIntDiff <- values$barplotData$sumImgIntensity[1:3] - values$barplotData$sumImgIntensity[4:6]
+    objCountDiff <- values$barplotData$objCount[1:3] - values$barplotData$objCount[4:6]
+    differenceData <- data.frame("Stain" = c(input$imgsRedStain, input$imgsGreenStain, input$imgsBlueStain), 
+                                 "Net Image Intensity Difference" = netImgIntDiff, 
+                                 "Object Count Difference" = objCountDiff)
+    values$differenceData <- differenceData
+    names(values$differenceData) <- c("Stain", "Net Image Intensity Difference", "Object Count Difference")
+    
+    # color coding for graphs
+    colorCode <- c("salmon", "green3","cornflower blue")
+    names(colorCode) <- c(input$imgsRedStain, input$imgsGreenStain, input$imgsBlueStain)
+    values$colorCode <- colorCode
     # print(values$barplotData)
     showElement(id = "previewBoxplots")
     enable(id = "statDesign")
@@ -418,6 +426,7 @@ shinyServer(function(input, output, session) {
       y = "b.mean",
       combine = TRUE,
       fill = "stain",
+      palette = values$colorCode,
       title = "Boxplot 1. Objects' Mean Intensities",
       xlab = "",
       ylab = "Intensity (0-1 grayscale)",
@@ -434,6 +443,7 @@ shinyServer(function(input, output, session) {
       y = "s.area",
       combine = TRUE,
       fill = "stain",
+      palette = values$colorCode,
       title = "Boxplot 2. Object Areas",
       subtitle = "Outliers not shown",
       xlab = "",
@@ -491,8 +501,11 @@ shinyServer(function(input, output, session) {
   ) %>% formatRound(columns = c(3:7), digits = 3)
   })
   
+  output$differenceTable <- renderTable({
+    values$differenceData
+  })
+  
   barplot1 <- reactive({
-    print(values$barplotData)
     ggbarplot(
       data = values$barplotData,
       x = "biocondition",
@@ -500,6 +513,7 @@ shinyServer(function(input, output, session) {
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
+      palette = values$colorCode,
       title = "Barplot 1. Sum Object Intensities",
       subtitle = "post-thresholded",
       add = "mean_se",
@@ -520,6 +534,7 @@ shinyServer(function(input, output, session) {
       combine = TRUE,
       merge = FALSE,
       fill = "stain",
+      palette = values$colorCode,
       title = "Barplot 2. Object Counts",
       subtitle = "post-thresholded, all objects included",
       add = "mean_se",
@@ -533,13 +548,14 @@ shinyServer(function(input, output, session) {
   })
   
   boxplot3 <- reactive({
-    print(str(values$featuresDF.all.clean))
+    #print(str(values$featuresDF.all.clean))
     ggboxplot(
       data = values$featuresDF.all.clean,
       x = "biocondition",
       y = "b.mean",
       combine = TRUE,
       fill = "stain",
+      palette = values$colorCode,
       title = "Boxplot 3. Object Intensities",
       subtitle = "user-defined object area range",
       xlab = "",
@@ -569,6 +585,7 @@ shinyServer(function(input, output, session) {
       y = "s.area",
       combine = TRUE,
       fill = "stain",
+      palette = values$colorCode,
       title = "Boxplot 4. Object Areas",
       subtitle = "user-defined object area range",
       xlab = "",
@@ -1159,6 +1176,9 @@ shinyServer(function(input, output, session) {
     validate(need(values$resultsDF, label = "Please view and confirm Stat Design before you may view results table"))
     tTestDT()
     })
+  output$differenceTable.v <- renderTable({
+    values$differenceData
+  })
   
   output$barplot1 <- renderPlot(barplot1())
   output$barplot2 <- renderPlot(barplot2())
@@ -1168,6 +1188,9 @@ shinyServer(function(input, output, session) {
   ####################################################### REPORTER MODULE ##########################################################
   
   # Markdown document for full report
+  reportAuthor <- reactive({input$reportAuthor})
+  reportTitle <- reactive({input$reportTitle})
+  
   options(tinytex.verbose = TRUE)
   output$downloadFullReport <- downloadHandler(
     filename = function() {

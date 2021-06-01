@@ -218,8 +218,10 @@ ui <- fluidPage(
                 )
               ),
               bsCollapsePanel(
-                title = "2.2. Result table",
-                DTOutput(outputId = "tTestDT") 
+                title = "2.2. Result tables",
+                DTOutput(outputId = "tTestDT"),
+                h5("Net Intensity and Object Count Differences"),
+                tableOutput(outputId = "differenceTable")
               )
             ), # end bsCollapsePanel
             bsCollapsePanel(
@@ -331,6 +333,8 @@ ui <- fluidPage(
         title = "4. Analysis Results", 
         style = "primary",
         DTOutput(outputId = "tTestDT.v"),
+        h5("Net Intensity and Object Count Differences"),
+        tableOutput(outputId = "differenceTable.v"),
         fluidRow(
           column(width = 6, plotOutput(outputId = "boxplot3", height = 600)),
           column(width = 6, plotOutput(outputId = "boxplot4", height = 600))
@@ -392,6 +396,8 @@ ui <- fluidPage(
   tabPanel(title = "Reporter", 
     tags$h1("Report Results", align = "center", style = "position: relative; top: 0; width: 100%"),
     radioButtons('format', 'Document format', c('HTML', 'PDF', 'Word'), inline = TRUE, selected = 'HTML'),
+    textInput("reportAuthor", label = "Enter author name(s) for the analysis report."),
+    textInput("reportTitle", label = "Enter a project title for your analysis report."),
     downloadButton(outputId = "downloadFullReport", label = "Generate Report"),
     br(),
     "Note that it may take up to a few minutes to generate the full report, depending on the total number
