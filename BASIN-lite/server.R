@@ -831,6 +831,7 @@ shinyServer(function(input, output, session) {                                  
     selectedImg.g.pntd <- values$imgs.g.pntd[c][[1]]
     selectedImg.b.pntd <- values$imgs.b.pntd[c][[1]]
     blankSpot <- Image(matrix("white",dim(selectedImg)[1],dim(selectedImg)[2])) # Blank canvas for formatting
+    print("try combine")
     EBImage::display(                                                           # Formatted Image display
       EBImage::combine(
         blankSpot, selectedImg, blankSpot,
@@ -1179,13 +1180,13 @@ shinyServer(function(input, output, session) {                                  
         }
         incProgress(amount = 0.33, message = "Saving Image Masks")
         # save a copy of all image masks to the output folder
-        masks.r <- lapply(values$imgs.r.thresholded, function(x){colormap(x, palette=c("white","red"))})
-        masks.g <- lapply(values$imgs.g.thresholded, function(x){colormap(x, palette=c("white","green"))})
-        masks.b <- lapply(values$imgs.b.thresholded, function(x){colormap(x, palette=c("white","blue"))})
-        for(i in seq_along(masks.r)){
-          writeImage(masks.r[[i]], files = file.path(redMasks,values$img.files[i]), type = "jpeg", quality = 80)
-          writeImage(masks.g[[i]], files = file.path(greenMasks,values$img.files[i]), type = "jpeg", quality = 80)
-          writeImage(masks.b[[i]], files = file.path(blueMasks, values$img.files[i]), type = "jpeg", quality = 80)
+        for(i in seq_along(values$imgs.r.thresholded)){
+          red <- colormap(values$imgs.r.thresholded[[i]], palette = c("white","red"))
+          green <- colormap(values$imgs.g.thresholded[[i]], palette = c("white","green"))
+          blue <- colormap(values$imgs.b.thresholded[[i]], palette = c("white","blue"))
+          writeImage(red, files = file.path(redMasks,values$img.files[i]), type = "jpeg", quality = 80)
+          writeImage(green, files = file.path(greenMasks,values$img.files[i]), type = "jpeg", quality = 80)
+          writeImage(blue, files = file.path(blueMasks, values$img.files[i]), type = "jpeg", quality = 80)
         }
         
         incProgress(amount = 0.67, message = "Saving Tables")
