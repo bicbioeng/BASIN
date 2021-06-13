@@ -1,6 +1,5 @@
 # Base image https://hub.docker.com/u/rocker/
-FROM rocker/shiny:latest
-
+FROM hvalev/shiny-server-arm
 # system libraries of general use
 ## install debian packages
 RUN apt-get update -qq && apt-get -y --no-install-recommends install \
@@ -28,17 +27,21 @@ RUN apt-get update && \
 COPY /tryBASIN ./app
 
 # install packages
-RUN Rscript -e 'install.packages("BiocManager") '
-RUN Rscript -e 'install.packages("ijtiff")'
-RUN Rscript -e 'BiocManager::install("EBImage")'
-RUN Rscript -e 'install.packages("plyr")'
-RUN Rscript -e 'install.packages("shinyBS")'
-RUN Rscript -e 'install.packages("shinyjs")'
-RUN Rscript -e 'install.packages("shinycssloaders")'
-RUN Rscript -e 'install.packages("shinyWidgets")'
-RUN Rscript -e 'install.packages("DT")'
-RUN Rscript -e 'install.packages("ggpubr")'
-RUN Rscript -e 'install.packages("autothresholdr")'
+RUN R -e "install.packages(c('ijtiff'), repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('plyr', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('shinyBS', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('shinyjs', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('shinycssloaders', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('shinyWidgets', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('DT', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('ggpubr', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('autothresholdr', repos='http://cran.rstudio.com/')"
+RUN Rscript -e "install.packages('BiocManager', repos='http://cran.rstudio.com/')"
+RUN apt-get -y install ca-certificates
+RUN apt-get -y install curl libcurl4 libtiff5-dev libfftw3-dev
+RUN Rscript -e "install.packages(c('tiff', 'jpeg', 'png', 'locfit', 'fftwtools', 'RCurl'), repos='http://cran.rstudio.com/')"
+RUN Rscript -e "BiocManager::install('EBImage', site_repository='http://bioconductor.org/packages/3.13/bioc')"
+COPY /tryBASIN /srv/shiny-server/
 
 # expose port
 EXPOSE 3838
