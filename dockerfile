@@ -41,6 +41,9 @@ RUN apt-get -y install ca-certificates
 RUN apt-get -y install curl libcurl4 libtiff5-dev libfftw3-dev
 RUN Rscript -e "install.packages(c('tiff', 'jpeg', 'png', 'locfit', 'fftwtools', 'RCurl'), repos='http://cran.rstudio.com/')"
 RUN Rscript -e "BiocManager::install('EBImage', site_repository='http://bioconductor.org/packages/3.13/bioc')"
+RUN Rscript -e "install.packages(c('rmarkdown'), repos='http://cran.rstudio.com/')"
+RUN apt-get install -y pandoc
+RUN cp -v /usr/bin/pandoc /usr/local/shiny-server/ext/pandoc/pandoc
 COPY /tryBASIN /srv/shiny-server/
 
 # expose port
