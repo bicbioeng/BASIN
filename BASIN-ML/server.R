@@ -1206,7 +1206,7 @@ shinyServer(function(input, output, session) {                                  
       # add = "mean_se",
       # error.plot = "errorbar",
       xlab = "",
-      ylab = "Intensity (0-1 grayscale/px)",
+      ylab = "Object Count",
       caption = paste0("BASIN session ID: ", values$sessionID)
     ) + 
       rotate_x_text(angle = 60) 
