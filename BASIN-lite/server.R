@@ -255,7 +255,7 @@ shinyServer(function(input, output, session) {                                  
       # reactive table for access anywhere in app
       values$analysisTable <- analysisTable
       # display table
-      analysisTable[1:6,c("filename","stain","experiment","biocondition","alternative","color.frame")]
+      head(analysisTable)
     }
     ) 
   })
@@ -466,7 +466,7 @@ shinyServer(function(input, output, session) {                                  
     features.r.filtered <- lapply(values$featuresRaw.r, function(x){
       x_new <- subset.data.frame(x, s.area > minArea & s.area < maxArea)
       if(nrow(x_new) == 0){
-        x_new <- x_new[1,]
+        x_new <- x[1,]
         x_new[1,4:ncol(x_new)] <- 0
       }
       return(x_new)
@@ -474,7 +474,7 @@ shinyServer(function(input, output, session) {                                  
     features.g.filtered <- lapply(values$featuresRaw.g, function(x){
       x_new <- subset.data.frame(x, s.area > minArea & s.area < maxArea)
       if(nrow(x_new) == 0){
-        x_new <- x_new[1,]
+        x_new <- x[1,]
         x_new[1,4:ncol(x_new)] <- 0
       }
       return(x_new)
@@ -482,7 +482,7 @@ shinyServer(function(input, output, session) {                                  
     features.b.filtered <- lapply(values$featuresRaw.b, function(x){
       x_new <- subset.data.frame(x, s.area > minArea & s.area < maxArea)
       if(nrow(x_new) == 0){
-        x_new <- x_new[1,]
+        x_new <- x[1,]
         x_new[1,4:ncol(x_new)] <- 0
       }
       return(x_new)
@@ -831,7 +831,6 @@ shinyServer(function(input, output, session) {                                  
     selectedImg.g.pntd <- values$imgs.g.pntd[c][[1]]
     selectedImg.b.pntd <- values$imgs.b.pntd[c][[1]]
     blankSpot <- Image(matrix("white",dim(selectedImg)[1],dim(selectedImg)[2])) # Blank canvas for formatting
-    print("try combine")
     EBImage::display(                                                           # Formatted Image display
       EBImage::combine(
         blankSpot, selectedImg, blankSpot,
