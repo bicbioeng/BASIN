@@ -1,6 +1,5 @@
 # Program: BASINlite Version 1.0 (ui.R)
 # Authors: Evgeni Radichev, Tim Hartman
-# Date last modified: 16 April 2020
 # Description: This program takes a user's 2D, color images as an initial input
 # and reads them. It then creates a CSV file that the user can fill in to
 # describe the images. The user uploads the file, and the program processes the
@@ -507,6 +506,6 @@ bsCollapse(
   ) # end bsCollapsePanel
 ), # end bsCollapse
 tags$footer(                                                                    # tags$footer keeps the text at the bottom of the app regardless of which page is open
-  "Copyright © 2021 The University of South Dakota. All rights reserved.",
+  "Copyright © 2021 Bioinformatics and Computational Biomedical Engineering (BicBioEng) Lab. All rights reserved.",
   align = "center", style = "position: relative; bottom: 0; width: 100%")
 ) # end ui <- fluidPage(...)

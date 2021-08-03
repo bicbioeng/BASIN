@@ -1,6 +1,5 @@
 # Program: BASINlite Version 1.0 (server.R)
 # Authors: Evgeni Radichev, Tim Hartman
-# Date last modified: 6 February 2021
 # Description: This program takes a user's 2D, color images as an initial input
 # and reads them. It then creates a CSV file that the user can fill in to
 # describe the images. The user uploads the file, and the program processes the
