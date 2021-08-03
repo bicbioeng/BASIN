@@ -7,7 +7,7 @@ graphs for analysis results, and generate a fully-formatted report of their
 experiment. For more information on BASIN, check out our documentation [site](https://basin-v10.readthedocs.io/en/latest/). For tutorials on the BASIN workflow and running the application, check out the playlists on our [YouTube channel](https://www.youtube.com/watch?v=Co-ejU11n08&list=PLgWMllLGp9XgE8oKFdCoV3qtbpTxRucdh).
 
 # BASIN Overview and Quick Tutorial
-A simplified version of BASIN is available through shinyApps at both [https://basin.bicbioeng.org/] and [http://bicbioeng.shinyapps.io/tryBASIN](http://bicbioeng.shinyapps.io/tryBASIN). This
+A simplified version of BASIN is available through shinyApps at both [https://basin.bicbioeng.org/](https://basin.bicbioeng.org/) and [http://bicbioeng.shinyapps.io/tryBASIN](http://bicbioeng.shinyapps.io/tryBASIN). This
 version only takes in 2 images, but the workflow is nearly identical to the complete version and serves as a gentle tutorial to most of BASIN's features.
  Note that for the full version of BASIN requires the user to download a csv
  containing the names of the images uploaded and assign 'control' and 'test'
