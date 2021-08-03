@@ -404,7 +404,7 @@ ui <- fluidPage(
                 of images uploaded."
   ) # end tabPanel 'reporter'
 ), # end navbarPage
-tags$footer("Copyright © 2020 The University of South Dakota. All rights reserved.",
+tags$footer("Copyright © 2021 Bioinformatics and Computational Biomedical Engineering (BicBioEng) Lab. All rights reserved.",
             align = "center",
             style = "position: relative; bottom: 0; width: 100%")
 ) # end fluidPage
