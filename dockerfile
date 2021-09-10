@@ -18,7 +18,7 @@ RUN apt-get update -qq && apt-get -y --no-install-recommends install \
     libssl-dev
 
 ## update system libraries
-RUN apt-get update --fix_missing && \
+RUN apt-get update --fix-missing && \
     apt-get upgrade -y && \
     apt-get clean
 
