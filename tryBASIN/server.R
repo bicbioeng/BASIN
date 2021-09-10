@@ -1,3 +1,6 @@
+# set input file size - 10MB max
+options(shiny.maxRequestSize = 10*1024^2)
+
 # Function to properly construct data frame of t.test results
 tTestToDataFrame <- function(results, frame, altHypo){
   if(!is.na(results[[1]])){
@@ -130,8 +133,18 @@ shinyServer(function(input, output, session) {
 
     autothreshold <- function(x) {
       y <- x*(2^16-1)
-      z <- mask(y, method = input$thresh.auto)
-      x*z
+      if(!all(y == 0)){
+        tryCatch({
+          # compute threshold mask using user-selected method
+          z <- mask(y, method = input$thresh.auto)
+          x <- x*z
+        }, error = function(cond){
+          values$threshFail <- TRUE
+          z <- mask(y, method = "Otsu")
+          x <- x*z
+        })
+      }
+      return(x)
     }
     
     values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
@@ -189,36 +202,88 @@ shinyServer(function(input, output, session) {
     basicFeatures.img2.g <- computeFeatures.basic(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]])
     basicFeatures.img2.b <- computeFeatures.basic(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]])
 
-    features.img1.r <- data.frame(
-      stain = input$imgsRedStain, 
-      basicFeatures.img1.r, 
-      computeFeatures.moment(x = values$imgs.r.label[[1]], ref = values$imgs.r[[1]]), 
-      computeFeatures.shape(x = values$imgs.r.label[[1]]))
-    features.img1.g <- data.frame(
-      stain = input$imgsGreenStain, 
-      basicFeatures.img1.g, 
-      computeFeatures.moment(x = values$imgs.g.label[[1]], ref = values$imgs.g[[1]]), 
-      computeFeatures.shape(x = values$imgs.g.label[[1]]))
-    features.img1.b <- data.frame(
-      stain = input$imgsBlueStain, 
-      basicFeatures.img1.b, 
-      computeFeatures.moment(x = values$imgs.b.label[[1]], ref = values$imgs.b[[1]]), 
-      computeFeatures.shape(x = values$imgs.b.label[[1]]))
-    features.img2.r <- data.frame(
-      stain = input$imgsRedStain, 
-      basicFeatures.img2.r, 
-      computeFeatures.moment(x = values$imgs.r.label[[2]], ref = values$imgs.r[[2]]), 
-      computeFeatures.shape(x = values$imgs.r.label[[2]]))
-    features.img2.g <- data.frame(
-      stain = input$imgsGreenStain, 
-      basicFeatures.img2.g, 
-      computeFeatures.moment(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]]), 
-      computeFeatures.shape(x = values$imgs.g.label[[2]]))
-    features.img2.b <- data.frame(
-      stain = input$imgsBlueStain, 
-      basicFeatures.img2.b, 
-      computeFeatures.moment(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]]), 
-      computeFeatures.shape(x = values$imgs.b.label[[2]]))
+    # check for null features
+    basicFeatures <- data.frame(b.mean = 0, b.sd = 0, b.mad = 0, b.q001=0, b.q005=0, b.q05=0, b.q095=0, b.q099=0)
+    momentFeatures <- data.frame(m.cx=0, m.cy=0, m.majoraxis=0, m.eccentricity=0, m.theta=0)
+    shapeFeatures <- data.frame(s.area=0, s.perimeter=0, s.radius.mean=0, s.radius.sd=0, s.radius.min=0, s.radius.max=0)
+    if(is.null(basicFeatures.img1.r)){
+      features.img1.r <- data.frame(
+        stain = input$imgsRedStain, 
+        basicFeatures, 
+        momentFeatures, 
+        shapeFeatures)
+    } else {
+      features.img1.r <- data.frame(
+        stain = input$imgsRedStain, 
+        basicFeatures.img1.r, 
+        computeFeatures.moment(x = values$imgs.r.label[[1]], ref = values$imgs.r[[1]]), 
+        computeFeatures.shape(x = values$imgs.r.label[[1]]))
+    }
+    if(is.null(basicFeatures.img1.g)){
+      features.img1.g <- data.frame(
+        stain = input$imgsGreenStain, 
+        basicFeatures, 
+        momentFeatures, 
+        shapeFeatures)
+    } else {
+      features.img1.g <- data.frame(
+        stain = input$imgsGreenStain, 
+        basicFeatures.img1.g, 
+        computeFeatures.moment(x = values$imgs.g.label[[1]], ref = values$imgs.g[[1]]), 
+        computeFeatures.shape(x = values$imgs.g.label[[1]]))
+    }
+    if(is.null(basicFeatures.img1.b)){
+      features.img1.b <- data.frame(
+        stain = input$imgsBlueStain, 
+        basicFeatures, 
+        momentFeatures, 
+        shapeFeatures)
+    } else {
+      features.img1.b <- data.frame(
+        stain = input$imgsBlueStain, 
+        basicFeatures.img1.b, 
+        computeFeatures.moment(x = values$imgs.b.label[[1]], ref = values$imgs.b[[1]]), 
+        computeFeatures.shape(x = values$imgs.b.label[[1]]))
+    }
+    if(is.null(basicFeatures.img2.r)){
+      features.img2.r <- data.frame(
+        stain = input$imgsRedStain, 
+        basicFeatures, 
+        momentFeatures, 
+        shapeFeatures)
+    } else {
+      features.img2.r <- data.frame(
+        stain = input$imgsRedStain, 
+        basicFeatures.img2.r, 
+        computeFeatures.moment(x = values$imgs.r.label[[2]], ref = values$imgs.r[[2]]), 
+        computeFeatures.shape(x = values$imgs.r.label[[2]]))
+    }
+    if(is.null(basicFeatures.img2.g)){
+      features.img2.g <- data.frame(
+        stain = input$imgsGreenStain, 
+        basicFeatures, 
+        momentFeatures, 
+        shapeFeatures)
+    } else {
+      features.img2.g <- data.frame(
+        stain = input$imgsGreenStain, 
+        basicFeatures.img2.g, 
+        computeFeatures.moment(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]]), 
+        computeFeatures.shape(x = values$imgs.g.label[[2]]))
+    }
+    if(is.null(basicFeatures.img2.b)){
+      features.img2.b <- data.frame(
+        stain = input$imgsBlueStain, 
+        basicFeatures, 
+        momentFeatures, 
+        shapeFeatures)
+    } else {
+      features.img2.b <- data.frame(
+        stain = input$imgsBlueStain, 
+        basicFeatures.img2.b, 
+        computeFeatures.moment(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]]), 
+        computeFeatures.shape(x = values$imgs.b.label[[2]]))
+    }
 
     values$features.r <- list(features.img1.r, features.img2.r)
     values$features.g <- list(features.img1.g, features.img2.g)
