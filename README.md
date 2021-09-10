@@ -7,4 +7,4 @@ graphs for analysis results, and generate a fully-formatted report of their
 experiment.
 
 # tryBASIN Overview and Quick Tutorial
-The tryBASIN application is a version of BASIN that's available through shinyApps at [http://bicbioeng.shinyapps.io/tryBASIN](http://bicbioeng.shinyapps.io/tryBASIN). This version takes in 2 images and serves as a gentle tutorial to most of BASIN's features. We have provided sample images in the application for users to get familiar with the workflow. Users can also upload their own images to test out using tryBASIN.
+The tryBASIN application is a version of BASIN that's available online at [https://basin.bicbioeng.org/](https://basin.bicbioeng.org/). This version takes in 2 images and serves as a gentle tutorial to most of BASIN's features. We have provided sample images in the application for users to get familiar with the workflow. Users can also upload their own images to test out using tryBASIN.
