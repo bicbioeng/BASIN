@@ -396,7 +396,7 @@ ui <- fluidPage(
   ), # end tabPanel 'Viewer
   tabPanel(title = "Reporter", 
     tags$h1("Report Results", align = "center", style = "position: relative; top: 0; width: 100%"),
-    radioButtons('format', 'Document format', c('HTML', 'PDF', 'Word'), inline = TRUE, selected = 'HTML'),
+    radioButtons('format', 'Document format', c('HTML', 'Word'), inline = TRUE, selected = 'HTML'),
     textInput("reportAuthor", label = "Enter author name(s) for the analysis report."),
     textInput("reportTitle", label = "Enter a project title for your analysis report."),
     downloadButton(outputId = "downloadFullReport", label = "Generate Report"),

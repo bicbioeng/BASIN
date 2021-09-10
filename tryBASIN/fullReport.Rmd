@@ -4,6 +4,7 @@ subtitle: "`r reportTitle()`"
 author: "`r reportAuthor()`"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 output: html_document
+always_allow_html: yes
 ---
 **Cite this analysis**: Tim Hartman. et al., BASIN- a workflow for objective statistical analysis of bio-image dataset, CSBJ, 2021
 <br>

@@ -1259,7 +1259,7 @@ shinyServer(function(input, output, session) {
   options(tinytex.verbose = TRUE)
   output$downloadFullReport <- downloadHandler(
     filename = function() {
-      paste('my_figure', sep = '.', switch(input$format, HTML = 'html', PDF = 'pdf', Word = 'docx'))
+      paste('my_figure', sep = '.', switch(input$format, HTML = 'html', Word = 'docx'))
     },
     content = function(file) {
       src <- file.path(reportsDir, "fullReport.Rmd")
@@ -1270,7 +1270,7 @@ shinyServer(function(input, output, session) {
       library(rmarkdown)
       out <- render('fullReport.Rmd', switch(
         input$format,
-        HTML = html_document(), PDF = pdf_document(), Word = word_document()
+        HTML = html_document(), Word = word_document()
       ))
       file.rename(out, file)
     }
