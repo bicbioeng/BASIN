@@ -147,45 +147,52 @@ shinyServer(function(input, output, session) {
       return(x)
     }
     
-    values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
-    values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
-    values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold)
-    
-    values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
-    values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
-    values$imgs.b.label <- lapply(values$imgs.b.thresholded, bwlabel)
-    
-    values$imgs.r.clrlabel <- lapply(values$imgs.r.label, colorLabels)
-    values$imgs.g.clrlabel <- lapply(values$imgs.g.label, colorLabels)
-    values$imgs.b.clrlabel <- lapply(values$imgs.b.label, colorLabels)
-    
-    values$img1.r <- channel(values$imgs.r[[1]], "asred")
-    values$img1.g <- channel(values$imgs.g[[1]], "asgreen")
-    values$img1.b <- channel(values$imgs.b[[1]], "asblue")
-    values$img2.r <- channel(values$imgs.r[[2]], "asred")
-    values$img2.g <- channel(values$imgs.g[[2]], "asgreen")
-    values$img2.b <- channel(values$imgs.b[[2]], "asblue")
-    
-    values$img1.r.th <- channel(values$imgs.r.thresholded[[1]], "asred")
-    values$img1.g.th <- channel(values$imgs.g.thresholded[[1]], "asgreen")
-    values$img1.b.th <- channel(values$imgs.b.thresholded[[1]], "asblue")
-    values$img2.r.th <- channel(values$imgs.r.thresholded[[2]], "asred")
-    values$img2.g.th <- channel(values$imgs.g.thresholded[[2]], "asgreen")
-    values$img2.b.th <- channel(values$imgs.b.thresholded[[2]], "asblue")
-    
-    values$img1.r.clbl <- values$imgs.r.clrlabel[[1]]
-    values$img1.g.clbl <- values$imgs.g.clrlabel[[1]]
-    values$img1.b.clbl <- values$imgs.b.clrlabel[[1]]
-    values$img2.r.clbl <- values$imgs.r.clrlabel[[2]]
-    values$img2.g.clbl <- values$imgs.g.clrlabel[[2]]
-    values$img2.b.clbl <- values$imgs.b.clrlabel[[2]]
-    
-    values$img1.r.pntd <- paintObjects(values$imgs.r.label[[1]], values$img1.r, col = "yellow")
-    values$img1.g.pntd <- paintObjects(values$imgs.g.label[[1]], values$img1.g, col = "yellow")
-    values$img1.b.pntd <- paintObjects(values$imgs.b.label[[1]], values$img1.b, col = "yellow")
-    values$img2.r.pntd <- paintObjects(values$imgs.r.label[[2]], values$img2.r, col = "yellow")
-    values$img2.g.pntd <- paintObjects(values$imgs.g.label[[2]], values$img2.g, col = "yellow")
-    values$img2.b.pntd <- paintObjects(values$imgs.b.label[[2]], values$img2.b, col = "yellow")
+    withProgress(message = 'Image Pre-processing', value = 0, {
+      incProgress(0.25,detail=paste("Thresholding Frames"))
+      values$imgs.r.thresholded <- lapply(values$imgs.r, autothreshold)
+      values$imgs.g.thresholded <- lapply(values$imgs.g, autothreshold)
+      values$imgs.b.thresholded <- lapply(values$imgs.b, autothreshold)
+      
+      incProgress(0.5,detail=paste("Labeling"))
+      values$imgs.r.label <- lapply(values$imgs.r.thresholded, bwlabel)
+      values$imgs.g.label <- lapply(values$imgs.g.thresholded, bwlabel)
+      values$imgs.b.label <- lapply(values$imgs.b.thresholded, bwlabel)
+      
+      values$imgs.r.clrlabel <- lapply(values$imgs.r.label, colorLabels)
+      values$imgs.g.clrlabel <- lapply(values$imgs.g.label, colorLabels)
+      values$imgs.b.clrlabel <- lapply(values$imgs.b.label, colorLabels)
+      
+      values$img1.r <- channel(values$imgs.r[[1]], "asred")
+      values$img1.g <- channel(values$imgs.g[[1]], "asgreen")
+      values$img1.b <- channel(values$imgs.b[[1]], "asblue")
+      values$img2.r <- channel(values$imgs.r[[2]], "asred")
+      values$img2.g <- channel(values$imgs.g[[2]], "asgreen")
+      values$img2.b <- channel(values$imgs.b[[2]], "asblue")
+      
+      values$img1.r.th <- channel(values$imgs.r.thresholded[[1]], "asred")
+      values$img1.g.th <- channel(values$imgs.g.thresholded[[1]], "asgreen")
+      values$img1.b.th <- channel(values$imgs.b.thresholded[[1]], "asblue")
+      values$img2.r.th <- channel(values$imgs.r.thresholded[[2]], "asred")
+      values$img2.g.th <- channel(values$imgs.g.thresholded[[2]], "asgreen")
+      values$img2.b.th <- channel(values$imgs.b.thresholded[[2]], "asblue")
+      
+      values$img1.r.clbl <- values$imgs.r.clrlabel[[1]]
+      values$img1.g.clbl <- values$imgs.g.clrlabel[[1]]
+      values$img1.b.clbl <- values$imgs.b.clrlabel[[1]]
+      values$img2.r.clbl <- values$imgs.r.clrlabel[[2]]
+      values$img2.g.clbl <- values$imgs.g.clrlabel[[2]]
+      values$img2.b.clbl <- values$imgs.b.clrlabel[[2]]
+      
+      incProgress(0.75,detail=paste("Re-Coloring Objects"))
+      values$img1.r.pntd <- paintObjects(values$imgs.r.label[[1]], values$img1.r, col = "yellow")
+      values$img1.g.pntd <- paintObjects(values$imgs.g.label[[1]], values$img1.g, col = "yellow")
+      values$img1.b.pntd <- paintObjects(values$imgs.b.label[[1]], values$img1.b, col = "yellow")
+      values$img2.r.pntd <- paintObjects(values$imgs.r.label[[2]], values$img2.r, col = "yellow")
+      values$img2.g.pntd <- paintObjects(values$imgs.g.label[[2]], values$img2.g, col = "yellow")
+      values$img2.b.pntd <- paintObjects(values$imgs.b.label[[2]], values$img2.b, col = "yellow")
+      
+      incProgress(1.0,detail=paste("Moving to Feature Extraction"))
+    })# end withProgress
     
     ################################################################
     # FEATURE EXTRACTION
@@ -195,95 +202,101 @@ shinyServer(function(input, output, session) {
     names(values$imgs.g.label)[c(1,2)] <- c(input$img1Condition, input$img2Condition)
     names(values$imgs.b.label)[c(1,2)] <- c(input$img1Condition, input$img2Condition)
     
-    basicFeatures.img1.r <- computeFeatures.basic(x = values$imgs.r.label[[1]], ref = values$imgs.r[[1]])
-    basicFeatures.img1.g <- computeFeatures.basic(x = values$imgs.g.label[[1]], ref = values$imgs.g[[1]])
-    basicFeatures.img1.b <- computeFeatures.basic(x = values$imgs.b.label[[1]], ref = values$imgs.b[[1]])
-    basicFeatures.img2.r <- computeFeatures.basic(x = values$imgs.r.label[[2]], ref = values$imgs.r[[2]])
-    basicFeatures.img2.g <- computeFeatures.basic(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]])
-    basicFeatures.img2.b <- computeFeatures.basic(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]])
-
-    # check for null features
-    basicFeatures <- data.frame(b.mean = 0, b.sd = 0, b.mad = 0, b.q001=0, b.q005=0, b.q05=0, b.q095=0, b.q099=0)
-    momentFeatures <- data.frame(m.cx=0, m.cy=0, m.majoraxis=0, m.eccentricity=0, m.theta=0)
-    shapeFeatures <- data.frame(s.area=0, s.perimeter=0, s.radius.mean=0, s.radius.sd=0, s.radius.min=0, s.radius.max=0)
-    if(is.null(basicFeatures.img1.r)){
-      features.img1.r <- data.frame(
-        stain = input$imgsRedStain, 
-        basicFeatures, 
-        momentFeatures, 
-        shapeFeatures)
-    } else {
-      features.img1.r <- data.frame(
-        stain = input$imgsRedStain, 
-        basicFeatures.img1.r, 
-        computeFeatures.moment(x = values$imgs.r.label[[1]], ref = values$imgs.r[[1]]), 
-        computeFeatures.shape(x = values$imgs.r.label[[1]]))
-    }
-    if(is.null(basicFeatures.img1.g)){
-      features.img1.g <- data.frame(
-        stain = input$imgsGreenStain, 
-        basicFeatures, 
-        momentFeatures, 
-        shapeFeatures)
-    } else {
-      features.img1.g <- data.frame(
-        stain = input$imgsGreenStain, 
-        basicFeatures.img1.g, 
-        computeFeatures.moment(x = values$imgs.g.label[[1]], ref = values$imgs.g[[1]]), 
-        computeFeatures.shape(x = values$imgs.g.label[[1]]))
-    }
-    if(is.null(basicFeatures.img1.b)){
-      features.img1.b <- data.frame(
-        stain = input$imgsBlueStain, 
-        basicFeatures, 
-        momentFeatures, 
-        shapeFeatures)
-    } else {
-      features.img1.b <- data.frame(
-        stain = input$imgsBlueStain, 
-        basicFeatures.img1.b, 
-        computeFeatures.moment(x = values$imgs.b.label[[1]], ref = values$imgs.b[[1]]), 
-        computeFeatures.shape(x = values$imgs.b.label[[1]]))
-    }
-    if(is.null(basicFeatures.img2.r)){
-      features.img2.r <- data.frame(
-        stain = input$imgsRedStain, 
-        basicFeatures, 
-        momentFeatures, 
-        shapeFeatures)
-    } else {
-      features.img2.r <- data.frame(
-        stain = input$imgsRedStain, 
-        basicFeatures.img2.r, 
-        computeFeatures.moment(x = values$imgs.r.label[[2]], ref = values$imgs.r[[2]]), 
-        computeFeatures.shape(x = values$imgs.r.label[[2]]))
-    }
-    if(is.null(basicFeatures.img2.g)){
-      features.img2.g <- data.frame(
-        stain = input$imgsGreenStain, 
-        basicFeatures, 
-        momentFeatures, 
-        shapeFeatures)
-    } else {
-      features.img2.g <- data.frame(
-        stain = input$imgsGreenStain, 
-        basicFeatures.img2.g, 
-        computeFeatures.moment(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]]), 
-        computeFeatures.shape(x = values$imgs.g.label[[2]]))
-    }
-    if(is.null(basicFeatures.img2.b)){
-      features.img2.b <- data.frame(
-        stain = input$imgsBlueStain, 
-        basicFeatures, 
-        momentFeatures, 
-        shapeFeatures)
-    } else {
-      features.img2.b <- data.frame(
-        stain = input$imgsBlueStain, 
-        basicFeatures.img2.b, 
-        computeFeatures.moment(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]]), 
-        computeFeatures.shape(x = values$imgs.b.label[[2]]))
-    }
+    withProgress(message = 'Feature Extraction', value = 0, {
+      incProgress(0.33,detail=paste("Extracting Basic Features"))
+      basicFeatures.img1.r <- computeFeatures.basic(x = values$imgs.r.label[[1]], ref = values$imgs.r[[1]])
+      basicFeatures.img1.g <- computeFeatures.basic(x = values$imgs.g.label[[1]], ref = values$imgs.g[[1]])
+      basicFeatures.img1.b <- computeFeatures.basic(x = values$imgs.b.label[[1]], ref = values$imgs.b[[1]])
+      basicFeatures.img2.r <- computeFeatures.basic(x = values$imgs.r.label[[2]], ref = values$imgs.r[[2]])
+      basicFeatures.img2.g <- computeFeatures.basic(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]])
+      basicFeatures.img2.b <- computeFeatures.basic(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]])
+      
+      incProgress(0.66,detail=paste("Extracting Moment and Shape Features"))
+      # check for null features
+      basicFeatures <- data.frame(b.mean = 0, b.sd = 0, b.mad = 0, b.q001=0, b.q005=0, b.q05=0, b.q095=0, b.q099=0)
+      momentFeatures <- data.frame(m.cx=0, m.cy=0, m.majoraxis=0, m.eccentricity=0, m.theta=0)
+      shapeFeatures <- data.frame(s.area=0, s.perimeter=0, s.radius.mean=0, s.radius.sd=0, s.radius.min=0, s.radius.max=0)
+      if(is.null(basicFeatures.img1.r)){
+        features.img1.r <- data.frame(
+          stain = input$imgsRedStain, 
+          basicFeatures, 
+          momentFeatures, 
+          shapeFeatures)
+      } else {
+        features.img1.r <- data.frame(
+          stain = input$imgsRedStain, 
+          basicFeatures.img1.r, 
+          computeFeatures.moment(x = values$imgs.r.label[[1]], ref = values$imgs.r[[1]]), 
+          computeFeatures.shape(x = values$imgs.r.label[[1]]))
+      }
+      if(is.null(basicFeatures.img1.g)){
+        features.img1.g <- data.frame(
+          stain = input$imgsGreenStain, 
+          basicFeatures, 
+          momentFeatures, 
+          shapeFeatures)
+      } else {
+        features.img1.g <- data.frame(
+          stain = input$imgsGreenStain, 
+          basicFeatures.img1.g, 
+          computeFeatures.moment(x = values$imgs.g.label[[1]], ref = values$imgs.g[[1]]), 
+          computeFeatures.shape(x = values$imgs.g.label[[1]]))
+      }
+      if(is.null(basicFeatures.img1.b)){
+        features.img1.b <- data.frame(
+          stain = input$imgsBlueStain, 
+          basicFeatures, 
+          momentFeatures, 
+          shapeFeatures)
+      } else {
+        features.img1.b <- data.frame(
+          stain = input$imgsBlueStain, 
+          basicFeatures.img1.b, 
+          computeFeatures.moment(x = values$imgs.b.label[[1]], ref = values$imgs.b[[1]]), 
+          computeFeatures.shape(x = values$imgs.b.label[[1]]))
+      }
+      if(is.null(basicFeatures.img2.r)){
+        features.img2.r <- data.frame(
+          stain = input$imgsRedStain, 
+          basicFeatures, 
+          momentFeatures, 
+          shapeFeatures)
+      } else {
+        features.img2.r <- data.frame(
+          stain = input$imgsRedStain, 
+          basicFeatures.img2.r, 
+          computeFeatures.moment(x = values$imgs.r.label[[2]], ref = values$imgs.r[[2]]), 
+          computeFeatures.shape(x = values$imgs.r.label[[2]]))
+      }
+      if(is.null(basicFeatures.img2.g)){
+        features.img2.g <- data.frame(
+          stain = input$imgsGreenStain, 
+          basicFeatures, 
+          momentFeatures, 
+          shapeFeatures)
+      } else {
+        features.img2.g <- data.frame(
+          stain = input$imgsGreenStain, 
+          basicFeatures.img2.g, 
+          computeFeatures.moment(x = values$imgs.g.label[[2]], ref = values$imgs.g[[2]]), 
+          computeFeatures.shape(x = values$imgs.g.label[[2]]))
+      }
+      if(is.null(basicFeatures.img2.b)){
+        features.img2.b <- data.frame(
+          stain = input$imgsBlueStain, 
+          basicFeatures, 
+          momentFeatures, 
+          shapeFeatures)
+      } else {
+        features.img2.b <- data.frame(
+          stain = input$imgsBlueStain, 
+          basicFeatures.img2.b, 
+          computeFeatures.moment(x = values$imgs.b.label[[2]], ref = values$imgs.b[[2]]), 
+          computeFeatures.shape(x = values$imgs.b.label[[2]]))
+      }
+      
+      incProgress(1.0,detail=paste("Completed Feature Extraction"))
+    })
 
     values$features.r <- list(features.img1.r, features.img2.r)
     values$features.g <- list(features.img1.g, features.img2.g)
@@ -449,39 +462,75 @@ shinyServer(function(input, output, session) {
   ################################################################
   
   img1.all.seq <- reactive({
-    blankSpot <- Image(matrix("white", dim(values$img1)[1], dim(values$img1)[2]))
-    EBImage::display(
+    # scale down large images to prevent vector allocation error
+    if(any(dim(values$img1) > 512)){
+      # resize width and height, preserving scale
+      largestDim <- max(dim(values$img1)[1:2])
+      #downsizeFactor <- 2**ceiling(log(largestDim/512, base=2))
+      downsizeFactor <- largestDim/512
+      newDim <- as.integer(dim(values$img1)[1:2]/downsizeFactor)
+      blankSpot <- Image(matrix("white", newDim[1], newDim[2]))
+      EBImage::combine(
+        blankSpot, resize(values$img1, newDim[1], newDim[2]), blankSpot,
+        resize(values$img1.r, newDim[1], newDim[2]), 
+        resize(values$img1.g, newDim[1], newDim[2]), 
+        resize(values$img1.b, newDim[1], newDim[2]), 
+        resize(values$img1.r.th, newDim[1], newDim[2]), 
+        resize(values$img1.g.th, newDim[1], newDim[2]),
+        resize(values$img1.b.th, newDim[1], newDim[2]), 
+        resize(values$img1.r.clbl, newDim[1], newDim[2]), 
+        resize(values$img1.g.clbl, newDim[1], newDim[2]), 
+        resize(values$img1.b.clbl, newDim[1], newDim[2]), 
+        resize(values$img1.r.pntd, newDim[1], newDim[2]), 
+        resize(values$img1.g.pntd, newDim[1], newDim[2]),
+        resize(values$img1.b.pntd, newDim[1], newDim[2])
+      )
+      } else {
+      blankSpot <- Image(matrix("white", dim(values$img1)[1], dim(values$img1)[2]))
       EBImage::combine(
         blankSpot, values$img1, blankSpot,
         values$img1.r, values$img1.g, values$img1.b, 
         values$img1.r.th, values$img1.g.th, values$img1.b.th, 
         values$img1.r.clbl, values$img1.g.clbl, values$img1.b.clbl, 
         values$img1.r.pntd, values$img1.g.pntd, values$img1.b.pntd
-      ), nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE
-    )
-    text(x = (10 + dim(values$img1)[1] + dim(values$img1)[1]/2), y = -10, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
-    text(x = -10, y = (10 + dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-    text(x = -10, y = (20 + 2*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-    text(x = -10, y = (30 + 3*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-    text(x = -10, y = (40 + 4*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      )
+    }
   })
 
   img2.all.seq <- reactive({
-    blankSpot <- Image(matrix("white", dim(values$img2)[1], dim(values$img2)[2]))
-    EBImage::display(
+    # scale down large images to prevent vector allocation error
+    if(any(dim(values$img2) > 512)){
+      # resize width and height, preserving scale
+      largestDim <- max(dim(values$img2)[1:2])
+      #downsizeFactor <- 2**ceiling(log(largestDim/512, base=2))
+      downsizeFactor <- largestDim/512
+      newDim <- as.integer(dim(values$img2)[1:2]/downsizeFactor)
+      blankSpot <- Image(matrix("white", newDim[1], newDim[2]))
+      EBImage::combine(
+        blankSpot, resize(values$img2, newDim[1], newDim[2]), blankSpot,
+        resize(values$img2.r, newDim[1], newDim[2]), 
+        resize(values$img2.g, newDim[1], newDim[2]), 
+        resize(values$img2.b, newDim[1], newDim[2]), 
+        resize(values$img2.r.th, newDim[1], newDim[2]), 
+        resize(values$img2.g.th, newDim[1], newDim[2]),
+        resize(values$img2.b.th, newDim[1], newDim[2]), 
+        resize(values$img2.r.clbl, newDim[1], newDim[2]), 
+        resize(values$img2.g.clbl, newDim[1], newDim[2]), 
+        resize(values$img2.b.clbl, newDim[1], newDim[2]), 
+        resize(values$img2.r.pntd, newDim[1], newDim[2]), 
+        resize(values$img2.g.pntd, newDim[1], newDim[2]),
+        resize(values$img2.b.pntd, newDim[1], newDim[2])
+      )
+    } else {
+      blankSpot <- Image(matrix("white", dim(values$img2)[1], dim(values$img2)[2]))
       EBImage::combine(
         blankSpot, values$img2, blankSpot,
         values$img2.r, values$img2.g, values$img2.b, 
         values$img2.r.th, values$img2.g.th, values$img2.b.th, 
         values$img2.r.clbl, values$img2.g.clbl, values$img2.b.clbl, 
         values$img2.r.pntd, values$img2.g.pntd, values$img2.b.pntd
-      ), nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE
-    )
-    text(x = (10 + dim(values$img2)[1] + dim(values$img2)[1]/2), y = -10, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
-    text(x = -10, y = (10 + dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-    text(x = -10, y = (20 + 2*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-    text(x = -10, y = (30 + 3*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-    text(x = -10, y = (40 + 4*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      )
+    }
   })
   
   boxplot1 <- reactive({
@@ -752,78 +801,131 @@ shinyServer(function(input, output, session) {
   
   output$img1.sequence <- renderPlot({
     validate(need(values$imgs.r[[1]], "Click 'Confirm' to see extraction sequence"))
+    # check if resizing necessary
+    newDim <- dim(values$img1)[1:2]
+    toResize <- FALSE
+    if(any(newDim > 512)){
+      # resize width and height, preserving scale
+      largestDim <- max(dim(values$img1)[1:2])
+      #downsizeFactor <- 2**ceiling(log(largestDim/512, base=2))
+      downsizeFactor <- largestDim/512
+      newDim <- as.integer(dim(values$img1)[1:2]/downsizeFactor)
+      toResize <- TRUE
+    }
     img1.text <- reactive({
-      text(x = dim(values$img1)[1]/2, y = -10, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
-      text(x = -10, y = dim(values$img1)[2]/2, label = "Original", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (10 + dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (20 + 2*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (30 + 3*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (40 + 4*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = newDim[1]/2, y = -10, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
+      text(x = -10, y = newDim[2]/2, label = "Original", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (10 + newDim[2] + newDim[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (20 + 2*newDim[2] + newDim[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (30 + 3*newDim[2] + newDim[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (40 + 4*newDim[2] + newDim[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
     })
     if(input$viewStain == input$imgsRedStain) {
-      EBImage::display(EBImage::combine(values$img1, values$img1.r, values$img1.r.th, values$img1.r.clbl, values$img1.r.pntd), nx = 1, spacing = 10, margin = 40, method = "raster", all = TRUE)
+      if(toResize){
+        EBImage::display(EBImage::combine(resize(values$img1, newDim[1], newDim[2]), 
+                                          resize(values$img1.r, newDim[1], newDim[2]), 
+                                          resize(values$img1.r.th, newDim[1], newDim[2]), 
+                                          resize(values$img1.r.clbl, newDim[1], newDim[2]), 
+                                          resize(values$img1.r.pntd, newDim[1], newDim[2])), nx = 1, spacing = 10, margin = 40, method = "raster", all = TRUE)
+      } else {
+        EBImage::display(EBImage::combine(values$img1, values$img1.r, values$img1.r.th, values$img1.r.clbl, values$img1.r.pntd), nx = 1, spacing = 10, margin = 40, method = "raster", all = TRUE)
+      }
       img1.text()
     } else if(input$viewStain == input$imgsGreenStain) {
-      EBImage::display(EBImage::combine(values$img1, values$img1.g, values$img1.g.th, values$img1.g.clbl, values$img1.g.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      if(toResize){
+        EBImage::display(EBImage::combine(resize(values$img1,newDim[1],newDim[2]), 
+                                          resize(values$img1.g,newDim[1],newDim[2]), 
+                                          resize(values$img1.g.th,newDim[1],newDim[2]), 
+                                          resize(values$img1.g.clbl,newDim[1],newDim[2]), 
+                                          resize(values$img1.g.pntd,newDim[1],newDim[2])), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      } else {
+        EBImage::display(EBImage::combine(values$img1, values$img1.g, values$img1.g.th, values$img1.g.clbl, values$img1.g.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      }
       img1.text()
     } else if(input$viewStain == input$imgsBlueStain) {
-      EBImage::display(EBImage::combine(values$img1, values$img1.b, values$img1.b.th, values$img1.b.clbl, values$img1.b.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      if(toResize){      
+        EBImage::display(EBImage::combine(resize(values$img1,newDim[1],newDim[2]), 
+                                          resize(values$img1.b,newDim[1],newDim[2]), 
+                                          resize(values$img1.b.th,newDim[1],newDim[2]), 
+                                          resize(values$img1.b.clbl,newDim[1],newDim[2]), 
+                                          resize(values$img1.b.pntd,newDim[1],newDim[2])), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      } else {
+        EBImage::display(EBImage::combine(values$img1, values$img1.b, values$img1.b.th, values$img1.b.clbl, values$img1.b.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      }
       img1.text()
-    } else if(input$viewStain == "all") {
-      blankSpot <- Image(matrix("white", dim(values$img1)[1], dim(values$img1)[2]))
-      EBImage::display(
-        EBImage::combine(
-          blankSpot, values$img1, blankSpot,
-          values$img1.r, values$img1.g, values$img1.b, 
-          values$img1.r.th, values$img1.g.th, values$img1.b.th, 
-          values$img1.r.clbl, values$img1.g.clbl, values$img1.b.clbl, 
-          values$img1.r.pntd, values$img1.g.pntd, values$img1.b.pntd
-        ), nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE
-      )
-      text(x = (10 + dim(values$img1)[1] + dim(values$img1)[1]/2), y = -10, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
-      text(x = -10, y = (10 + dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (20 + 2*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (30 + 3*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (40 + 4*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    } else {
+      dims <- dim(img1.all.seq())
+      EBImage::display(img1.all.seq(), nx=3, spacing=10, method="raster", all=TRUE, margin=40)
+      text(x = (10 + dims[1] + dims[1]/2), y = -10, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
+      text(x = -10, y = (10 + dims[2] + dims[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (20 + 2*dims[2] + dims[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (30 + 3*dims[2] + dims[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (40 + 4*dims[2] + dims[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
     }
   }) # end renderPlot 'img1.sequence'
   
   output$img2.sequence <- renderPlot({
     validate(need(values$imgs.r[[2]], "Click 'Confirm' to see extraction sequence"))
+    # check if resizing necessary
+    newDim <- dim(values$img2)[1:2]
+    toResize <- FALSE
+    if(any(newDim > 512)){
+      # resize width and height, preserving scale
+      largestDim <- max(dim(values$img2)[1:2])
+      #downsizeFactor <- 2**ceiling(log(largestDim/512, base=2))
+      downsizeFactor <- largestDim/512
+      newDim <- as.integer(dim(values$img2)[1:2]/downsizeFactor)
+      toResize <- TRUE
+    }
     img2.text <- reactive({
-      text(x = dim(values$img2)[1]/2, y = -10, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
-      text(x = -10, y = dim(values$img2)[2]/2, label = "Original", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (10 + dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (20 + 2*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (30 + 3*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (40 + 4*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = newDim[1]/2, y = -10, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
+      text(x = -10, y = newDim[2]/2, label = "Original", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (10 + newDim[2] + newDim[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (20 + 2*newDim[2] + newDim[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (30 + 3*newDim[2] + newDim[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (40 + 4*newDim[2] + newDim[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
     })
-    
     if(input$viewStain == input$imgsRedStain) {
-      EBImage::display(EBImage::combine(values$img2, values$img2.r, values$img2.r.th, values$img2.r.clbl, values$img2.r.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      if(toResize){
+        EBImage::display(EBImage::combine(resize(values$img2, newDim[1], newDim[2]), 
+                                          resize(values$img2.r, newDim[1], newDim[2]), 
+                                          resize(values$img2.r.th, newDim[1], newDim[2]), 
+                                          resize(values$img2.r.clbl, newDim[1], newDim[2]), 
+                                          resize(values$img2.r.pntd, newDim[1], newDim[2])), nx = 1, spacing = 10, margin = 40, method = "raster", all = TRUE)
+      } else {
+        EBImage::display(EBImage::combine(values$img2, values$img2.r, values$img2.r.th, values$img2.r.clbl, values$img2.r.pntd), nx = 1, spacing = 10, margin = 40, method = "raster", all = TRUE)
+      }
       img2.text()
     } else if(input$viewStain == input$imgsGreenStain) {
-      EBImage::display(EBImage::combine(values$img2, values$img2.g, values$img2.g.th, values$img2.g.clbl, values$img2.g.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      if(toResize){
+        EBImage::display(EBImage::combine(resize(values$img2,newDim[1],newDim[2]), 
+                                          resize(values$img2.g,newDim[1],newDim[2]), 
+                                          resize(values$img2.g.th,newDim[1],newDim[2]), 
+                                          resize(values$img2.g.clbl,newDim[1],newDim[2]), 
+                                          resize(values$img2.g.pntd,newDim[1],newDim[2])), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      } else {
+        EBImage::display(EBImage::combine(values$img2, values$img2.g, values$img2.g.th, values$img2.g.clbl, values$img2.g.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      }
       img2.text()
     } else if(input$viewStain == input$imgsBlueStain) {
-      EBImage::display(EBImage::combine(values$img2, values$img2.b, values$img2.b.th, values$img2.b.clbl, values$img2.b.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      if(toResize){      
+        EBImage::display(EBImage::combine(resize(values$img2,newDim[1],newDim[2]), 
+                                          resize(values$img2.b,newDim[1],newDim[2]), 
+                                          resize(values$img2.b.th,newDim[1],newDim[2]), 
+                                          resize(values$img2.b.clbl,newDim[1],newDim[2]), 
+                                          resize(values$img2.b.pntd,newDim[1],newDim[2])), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      } else {
+        EBImage::display(EBImage::combine(values$img2, values$img2.b, values$img2.b.th, values$img2.b.clbl, values$img2.b.pntd), nx = 1, spacing = 10, margin = 40,  method = "raster", all = TRUE)
+      }
       img2.text()
-    } else if(input$viewStain == "all") {
-      blankSpot <- Image(matrix("white", dim(values$img2)[1], dim(values$img2)[2]))
-      EBImage::display(
-        EBImage::combine(
-          blankSpot, values$img2, blankSpot,
-          values$img2.r, values$img2.g, values$img2.b, 
-          values$img2.r.th, values$img2.g.th, values$img2.b.th, 
-          values$img2.r.clbl, values$img2.g.clbl, values$img2.b.clbl, 
-          values$img2.r.pntd, values$img2.g.pntd, values$img2.b.pntd
-        ), nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE
-      )
-      text(x = (10 + dim(values$img2)[1] + dim(values$img2)[1]/2), y = -10, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
-      text(x = -10, y = (10 + dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (20 + 2*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (30 + 3*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (40 + 4*dim(values$img2)[2] + dim(values$img2)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    } else {
+      dims <- dim(img2.all.seq())
+      EBImage::display(img2.all.seq(), nx=3, spacing=10, method="raster", all=TRUE, margin=40)
+      text(x = (10 + dims[1] + dims[1]/2), y = -10, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
+      text(x = -10, y = (10 + dims[2] + dims[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (20 + 2*dims[2] + dims[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (30 + 3*dims[2] + dims[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = -10, y = (40 + 4*dims[2] + dims[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
     }
   }) # end renderPlot 'img2.sequence'
   
@@ -1214,25 +1316,23 @@ shinyServer(function(input, output, session) {
   }) # end renderUI 'output$viewerInterpret'
   
   output$img1.sequence.v <- renderPlot({
-    blankSpot <- Image(matrix("white", dim(values$img1)[1], dim(values$img1)[2]))
-    EBImage::display(
-    EBImage::combine(
-      blankSpot, values$img1, blankSpot,
-      values$img1.r, values$img1.g, values$img1.b, 
-      values$img1.r.th, values$img1.g.th, values$img1.b.th, 
-      values$img1.r.clbl, values$img1.g.clbl, values$img1.b.clbl, 
-      values$img1.r.pntd, values$img1.g.pntd, values$img1.b.pntd
-    ), nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE
-  )
-  text(x = (10 + dim(values$img1)[1] + dim(values$img1)[1]/2), y = -30, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
-  text(x = -10, y = (10 + dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-  text(x = -10, y = (20 + 2*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-  text(x = -10, y = (30 + 3*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-  text(x = -10, y = (40 + 4*dim(values$img1)[2] + dim(values$img1)[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    dims <- dim(img1.all.seq())
+    EBImage::display(img1.all.seq(), nx=3, spacing=10, method="raster", all=TRUE, margin=40)
+    text(x = (10 + dims[1] + dims[1]/2), y = -10, label = input$img1Condition, adj = c(0.5, 0), col = "black", cex = 1)
+    text(x = -10, y = (10 + dims[2] + dims[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (20 + 2*dims[2] + dims[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (30 + 3*dims[2] + dims[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (40 + 4*dims[2] + dims[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
   })
-  
-  output$img1.sequence.v <- renderPlot(img1.all.seq())
-  output$img2.sequence.v <- renderPlot(img2.all.seq())
+  output$img2.sequence.v <- renderPlot({
+    dims <- dim(img2.all.seq())
+    EBImage::display(img2.all.seq(), nx=3, spacing=10, method="raster", all=TRUE, margin=40)
+    text(x = (10 + dims[1] + dims[1]/2), y = -10, label = input$img2Condition, adj = c(0.5, 0), col = "black", cex = 1)
+    text(x = -10, y = (10 + dims[2] + dims[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (20 + 2*dims[2] + dims[2]/2), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (30 + 3*dims[2] + dims[2]/2), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+    text(x = -10, y = (40 + 4*dims[2] + dims[2]/2), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+  })
   
   output$boxplot1.v <- renderPlot(boxplot1())
   output$boxplot2.v <- renderPlot(boxplot2())
