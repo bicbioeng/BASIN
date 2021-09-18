@@ -1,5 +1,6 @@
 # set input file size - 10MB max
 options(shiny.maxRequestSize = 10*1024^2)
+options(shiny.sanitize.errors = FALSE)
 
 # Function to properly construct data frame of t.test results
 tTestToDataFrame <- function(results, frame, altHypo){
