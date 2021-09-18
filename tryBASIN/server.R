@@ -1,5 +1,5 @@
-# set input file size - 10MB max
-options(shiny.maxRequestSize = 10*1024^2)
+# set input file size - 5MB max
+options(shiny.maxRequestSize = 5*1024^2)
 options(shiny.sanitize.errors = FALSE)
 
 # Function to properly construct data frame of t.test results
@@ -56,7 +56,8 @@ shinyServer(function(input, output, session) {
   observeEvent({
     values$img1
     values$img2
-    }, enable(id = "gotoExtractor")
+    },
+    enable(id = "gotoExtractor")
   )
   
   observeEvent(input$gotoExtractor, {
@@ -93,7 +94,11 @@ shinyServer(function(input, output, session) {
   })
   
    observeEvent(input$upload1, {
-     img1 <- readImage(input$upload1$datapath)
+     tryCatch({
+       img1 <- readImage(input$upload1$datapath)
+     }, error = function(cond){
+       validate(need(input$upload1$datapath == FALSE, "Must upload a valid image file of JPEG, PNG, or TIFF format!"))
+      })
      if(numberOfFrames(img1) == 1){
        img1 <- toRGB(img1)
      } else {
@@ -103,7 +108,11 @@ shinyServer(function(input, output, session) {
    })
   
   observeEvent(input$upload2, {
-    img2 <- readImage(input$upload2$datapath)
+    tryCatch({
+      img2 <- readImage(input$upload2$datapath)
+    }, error = function(cond){
+      validate(need(input$upload2$datapath == FALSE, "Must upload a valid image file of JPEG, PNG, or TIFF format!"))
+    })
     if(numberOfFrames(img2) == 1){
       img2 <- toRGB(img2)
     } else {

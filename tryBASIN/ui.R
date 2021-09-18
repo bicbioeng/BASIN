@@ -56,7 +56,7 @@ ui <- fluidPage(
         label = "(or try our example images)"), 
       align = "center", 
       style = "position: relative; top: 0; width: 100%"),
-    h5("Image size is limited to 10MB per image", align="center"),
+    h5("Due to server limitations, image size is limited to 5MB per image", align="center"),
     br(),
     # div(align = "center",
     #   fileInput(
