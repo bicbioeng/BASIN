@@ -102,7 +102,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           textOutput("threshMethodResult"),
           hr(),
           uiOutput("objectAreaThresholding"),
-          checkboxInput("removeGraphOutliers", label = "Show Outliers in Graphs"),
+          checkboxInput("removeGraphOutliers", label = "Show Outliers in Graphs", value=TRUE),
           hr(),
           actionButton(inputId = "previewBoxplots", width = "100%",             # Opens a popup window
                        label = "Boxplots & Summary"),
@@ -114,13 +114,13 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
             id = "previewBoxplotsPopup", title = "Boxplots & Summary", 
             trigger = "previewBoxplots", size = "large",
             column(width = 6, 
-                   withSpinner(plotOutput("boxplot1", height = "400px"))),      # 'withSpinner' gives user a visual aid to see that something is coming
+                   withSpinner(plotOutput("boxplot1", height = "800px"))),      # 'withSpinner' gives user a visual aid to see that something is coming
             column(width = 6, 
-                   withSpinner(plotOutput("boxplot2", height = "400px"))),
+                   withSpinner(plotOutput("boxplot2", height = "800px"))),
             column(width = 6, 
-                   withSpinner(plotOutput("intensityImgPlot", height="400px"))),
+                   withSpinner(plotOutput("intensityImgPlot", height="800px"))),
             column(width = 6,
-                   withSpinner(plotOutput("areaImgPlot", height = "400px"))),
+                   withSpinner(plotOutput("areaImgPlot", height = "800px"))),
             div(style = "font-size:80%",
               withSpinner(DTOutput("metadataDT", width = "100%")))
           ), # end bsModal 'previewBoxplotsPopup'
@@ -134,8 +134,8 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
               bsCollapsePanel(
                 style = "warning",
                 title = "1. Graphs",
-                withSpinner(plotOutput(outputId="resultPlot1", height=400)),    # A group of boxplots for object mean intensity data
-                withSpinner(plotOutput(outputId="resultPlot2", height=400))),   # A group of boxplots for object area data 
+                withSpinner(plotOutput(outputId="resultPlot1", height=800)),    # A group of boxplots for object mean intensity data
+                withSpinner(plotOutput(outputId="resultPlot2", height=800))),   # A group of boxplots for object area data 
               bsCollapsePanel(
                 style = "warning", title = "2. Stat Results Table",
                 h5("Net Intensity and Object Count Differences"),
@@ -156,7 +156,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
         mainPanel(width = 8,
           conditionalPanel("input.confirmThresh",                               # Once the 'Threshold All Images' button is pressed, this panel will be shown
                            uiOutput("conditionalImageInput")),                  # A selectInput box to choose an image to view
-          withSpinner(plotOutput("extractorImagePlot", height = "500px"))       # A plot object that shows the image sequence for a particular uploaded image
+          withSpinner(plotOutput("extractorImagePlot", height = "800px"))       # A plot object that shows the image sequence for a particular uploaded image
         ) # end mainPanel
       ), # end sidebarLayout
       "Extractor references:",
@@ -212,8 +212,8 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
       bsCollapsePanel(
         title = "4. Analysis Results", style = "primary",
         fluidRow(
-          column(width = 6, withSpinner(plotOutput("boxplot3", height = 400))), # A boxplot of object mean intensities with p-values
-          column(width = 6, withSpinner(plotOutput("boxplot4", height = 400)))), # A boxplot of object areas with p-values
+          column(width = 6, withSpinner(plotOutput("boxplot3", height = 800))), # A boxplot of object mean intensities with p-values
+          column(width = 6, withSpinner(plotOutput("boxplot4", height = 800)))), # A boxplot of object areas with p-values
         # DTOutput(outputId = "tTestDT.v"),                                       # A table of t-test results for each image and frame
         h5("Object Mean Intensity T-test Results"),
         tableOutput(outputId = "intensityTestDT.v"), # A boxplot of object mean intensities with p-values

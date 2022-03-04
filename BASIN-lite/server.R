@@ -150,6 +150,9 @@ shinyServer(function(input, output, session) {                                  
         input$uploadImages$name, regex = ".*jpg|.*png|.*tif", simplify = TRUE))
     values$img.files <- input$uploadImages$name[!is.na(unfiltered_files)]       # Filter out images of accepted format
     values$img.paths <- input$uploadImages$datapath[!is.na(unfiltered_files)]
+    # add alias for filenames in case they are too long
+    values$aliases <- stringr::str_c(rep("Image ", length(values$img.files)), seq(1,length(values$img.files)))
+    names(values$aliases) <- values$img.files
   })
   
   output$statDesignUpload <- renderUI({                                         # UI for csv upload - stat design and analysis
@@ -197,8 +200,9 @@ shinyServer(function(input, output, session) {                                  
       "filename" = req(values$img.files), "stain" = "", "experiment" = NA, 
       "biocondition" = NA, "alternative" = "not=", "color frame" = "red")
     values$analysisTable <- cbind(id = rownames(df), df)
-    #tkraise(tktoplevel())
+    # choose output directory for analysis table
     wd <- tclvalue(tkchooseDirectory())
+
     if(dir.exists(wd)){
       write.csv(
         values$analysisTable, file = file.path(wd,"analysisTable.csv"), 
@@ -445,6 +449,8 @@ shinyServer(function(input, output, session) {                                  
     featuresDF.b$biocondition <- paste0(featuresDF.b$biocondition,".b")
     
     values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
+    values$featuresDF.all["alias"] <- values$aliases[values$featuresDF.all$filename]
+    
     values$maxObjectArea <- max(values$featuresDF.all$s.area)
     
     # create reactive features that can be used by other code blocks
@@ -496,6 +502,8 @@ shinyServer(function(input, output, session) {                                  
     featuresDF.b$biocondition <- paste0(featuresDF.b$biocondition,".b")
     
     values$featuresDF.all <- rbind(featuresDF.r,featuresDF.g,featuresDF.b)
+    # add alias for filenames in case they are too long
+    values$featuresDF.all["alias"] <- values$aliases[values$featuresDF.all$filename]
     
     count.r <- lapply(features.r.filtered, function(x){
       counts <- nrow(x)
@@ -526,6 +534,7 @@ shinyServer(function(input, output, session) {                                  
     metadata.r <- data.frame(                                                   # Sum Intensity and Object Count Data
       row.names = NULL,
       filename = values$img.files,
+      alias = values$aliases,
       condition = values$analysisTable$biocondition,
       stain = values$redStain, #input$imgsRedStain,
       sumImgIntensity = vapply(
@@ -547,6 +556,7 @@ shinyServer(function(input, output, session) {                                  
     metadata.g <- data.frame(
       row.names = NULL,
       filename = values$img.files,
+      alias = values$aliases,
       condition = values$analysisTable$biocondition,
       stain = values$greenStain, #input$imgsGreenStain,
       sumImgIntensity = vapply(
@@ -568,6 +578,7 @@ shinyServer(function(input, output, session) {                                  
     metadata.b <- data.frame(
       row.names = NULL,
       filename = values$img.files,
+      alias = values$aliases,
       condition = values$analysisTable$biocondition,
       stain = values$blueStain, #input$imgsBlueStain,
       sumImgIntensity = vapply(
@@ -595,6 +606,8 @@ shinyServer(function(input, output, session) {                                  
     }
     
     values$barplotData <- format.metadata(metadata.r,metadata.g,metadata.b)
+    # add alias for filenames in case they are too long
+    # values$barplotData["alias"] <- values$aliases[values$barplotData$filename]
     
     # format the differences table
     diff.r <- intensityAndCountDifference(metadata.r)
@@ -837,9 +850,9 @@ shinyServer(function(input, output, session) {                                  
         selectedImg.r.th, selectedImg.g.th, selectedImg.b.th,
         selectedImg.r.clbl, selectedImg.g.clbl, selectedImg.b.clbl,
         selectedImg.r.pntd, selectedImg.g.pntd, selectedImg.b.pntd
-      ), nx = 3, spacing = 10, margin = 40, method = "raster", all = TRUE
+      ), nx = 3, spacing = 10, margin = c(40,80), method = "raster", all = TRUE
     )
-    text(x = (10 + dim(selectedImg)[1] + dim(selectedImg)[1]/2), y = -10,       # Vertical Labels
+    text(x = (10 + dim(selectedImg)[1] + dim(selectedImg)[1]/2), y = -20,       # Vertical Labels
          label = values$img.files[c][[1]], adj = c(0.5, 0), col="black", cex=1)
     text(x = -10, y = (10 + dim(selectedImg)[2] + dim(selectedImg)[2]/2), 
          label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
@@ -850,11 +863,11 @@ shinyServer(function(input, output, session) {                                  
     text(x = -10, y = (40 + 4*dim(selectedImg)[2] + dim(selectedImg)[2]/2), 
          label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
     
-    text(x = selectedImg@dim[1]/2, y = (50 + 5*selectedImg@dim[2]),             # Horizontal Labels
+    text(x = selectedImg@dim[1]/2, y = (70 + 5*selectedImg@dim[2]),             # Horizontal Labels
          label = input$imgsRedStain, col = "black", cex = 1)
-    text(x = 10 + 1.5*selectedImg@dim[1], y = (50 + 5*selectedImg@dim[2]),
+    text(x = 10 + 1.5*selectedImg@dim[1], y = (70 + 5*selectedImg@dim[2]),
          label = input$imgsGreenStain, col = "black", cex = 1)
-    text(x = 20 + 2.5*selectedImg@dim[1], y = (50 + 5*selectedImg@dim[2]),
+    text(x = 20 + 2.5*selectedImg@dim[1], y = (70 + 5*selectedImg@dim[2]),
          label = input$imgsBlueStain, col = "black", cex = 1)
   })
   
@@ -864,7 +877,7 @@ shinyServer(function(input, output, session) {                                  
     outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$featuresDF.all,
-      x = "filename",
+      x = "alias",#x = "filename",
       y = "b.mean",
       combine = TRUE,
       fill = "stain",
@@ -884,7 +897,7 @@ shinyServer(function(input, output, session) {                                  
     outliers <- ifelse(input$removeGraphOutliers, yes = 19, no = NA)
     ggboxplot(
       data = values$featuresDF.all,
-      x = "filename",
+      x = "alias",#x = "filename",
       y = "s.area",
       combine = TRUE,
       fill = "stain",
@@ -956,6 +969,7 @@ shinyServer(function(input, output, session) {                                  
       thead(
         tr(
           th(rowspan = 2, "Filename"),
+          th(rowspan = 2, "Alias"),
           th(rowspan = 2, "Biocondition"),
           th(rowspan = 2, "Stain"),
           th(colspan = 2, "Image Level"),
@@ -969,7 +983,7 @@ shinyServer(function(input, output, session) {                                  
       )
     ))
     dtable <- datatable(
-      data = values$barplotData[, 1:9], 
+      data = values$barplotData[, 1:10], 
       caption = "Data Summary (all raw data included)",
       container = sketch,
       rownames = FALSE,
@@ -979,8 +993,8 @@ shinyServer(function(input, output, session) {                                  
         paging = FALSE,
         scrollX = TRUE
       )
-    ) %>% formatRound(columns = c(4,5,6,8,9), digits = 0) %>% 
-      formatRound(columns = 7, digits = 4) 
+    ) %>% formatRound(columns = c(5,6,7,9,10), digits = 0) %>% 
+      formatRound(columns = 8, digits = 4) 
     # %>% formatStyle(
     #   c('sumImgIntensity','objCount'), backgroundColor = 'gray'
     # )
@@ -1000,7 +1014,7 @@ shinyServer(function(input, output, session) {                                  
   barplot1 <- reactive({
     ggbarplot(
       data = values$barplotData,
-      x = "filename",
+      x = "alias",#x = "filename",
       y = "sumObjIntensity",
       combine = FALSE,
       merge = TRUE,
@@ -1023,7 +1037,7 @@ shinyServer(function(input, output, session) {                                  
   barplot2 <- reactive({
     ggbarplot(
       data = values$barplotData,
-      x = "filename",
+      x = "alias",#x = "filename",
       y = "objCount",
       combine = FALSE,
       merge = TRUE,
@@ -1802,7 +1816,7 @@ shinyServer(function(input, output, session) {                                  
     },
     content = function(file) {
       withProgress(value = 0.5, message = "Generating Report. This may take a few minutes.",{
-        src <- file.path(reportsDir, "fullReport.Rmd")
+        src <- file.path(basinDir, "fullReport.Rmd")
         basinOutDir <- getwd()
         owd <- setwd(tempdir())                                                   # temporarily switch to the temp dir, in case you do not have write permission to the current working directory
         on.exit(expr = setwd(owd))
