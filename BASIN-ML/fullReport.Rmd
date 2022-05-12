@@ -37,14 +37,14 @@ The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts
 `r num_images` images were uploaded in this session:
 ```{r images, warning=FALSE, echo = FALSE}
     # Format a plotting grid of sufficient size, then plot all images
-    par(mfrow=c(ceiling(sqrt(length(values$imgs))),
-              ceiling(sqrt(length(values$imgs)))))
+    par(mfrow=c(min(3, length(values$imgs)),
+              ceiling(length(values$imgs)/3)))
     c <- 1
     while(c<=length(values$img.files)){
       img <- values$imgs[[c]]
       name <- values$img.files[[c]]
-      EBImage::display(img, method = "raster", margin = c(50,30), spacing = 50)
-      text(x = img@dim[1]/2, y = img@dim[2]+15, label = name, cex = 1.25)
+      EBImage::display(img, method = "raster", margin = c(40,80), spacing = 50)
+      text(x = img@dim[1]/2, y = img@dim[2]+40, label = name, cex = 1)
       c <- c+1
     }
 ```
@@ -91,7 +91,6 @@ The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts
 <center> All Images Extraction Sequences
 ```{r imgs, echo=FALSE, warning = FALSE, out.width="100%"}
   # lapply(values$imgs, display)
-  par(mfrow = c(2, ceiling(length(values$img.files)/2)))
     output <- lapply(values$img.files, function(x){
       # Logical vector for image selection
       c <- values$img.files == x
@@ -125,15 +124,15 @@ The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts
     f <- mapply(function(x,lbl){
       EBImage::display(x, nx = 3, spacing = 10, margin = c(40,120), method = "raster", all = TRUE)
       # Vertical Labels
-      text(x = (10 + x@dim[1] + x@dim[1]/2), y = -10, label = lbl, adj = c(0.5, 0), col = "black", cex = 1)
-      text(x = -10, y = (10 + x@dim[2] + x@dim[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (20 + 2.5*x@dim[2]), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (30 + 3.5*x@dim[2]), label = "Label", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
-      text(x = -10, y = (40 + 4.5*x@dim[2]), label = "Outline", adj = c(0.5, 0), col = "black", cex = 1, srt = 90)
+      text(x = (10 + x@dim[1] + x@dim[1]/2), y = -15, label = lbl, adj = c(0.5, 0), col = "black", cex = 0.8)
+      text(x = -10, y = (10 + x@dim[2] + x@dim[2]/2), label = "Frame", adj = c(0.5, 0), col = "black", cex = 0.8, srt = 90)
+      text(x = -10, y = (20 + 2.5*x@dim[2]), label = "Threshold", adj = c(0.5, 0), col = "black", cex = 0.8, srt = 90)
+      text(x = -10, y = (30 + 3.5*x@dim[2]), label = "Label", adj = c(0.5, 0), col = "black", cex = 0.8, srt = 90)
+      text(x = -10, y = (40 + 4.5*x@dim[2]), label = "Outline", adj = c(0.5, 0), col = "black", cex = 0.8, srt = 90)
       # Horizontal Labels
-      text(x = x@dim[1]/2, y = (105 + 5*x@dim[2]),label = input$imgsRedStain, col = "black", cex = 1)
-      text(x = 10 + 1.5*x@dim[1], y = (105 + 5*x@dim[2]),label = input$imgsGreenStain, col = "black", cex = 1)
-      text(x = 20 + 2.5*x@dim[1], y = (105 + 5*x@dim[2]),label = input$imgsBlueStain, col = "black", cex = 1)
+      text(x = x@dim[1]/2, y = (90 + 5*x@dim[2]),label = input$imgsRedStain, col = "black", cex = 0.8)
+      text(x = 10 + 1.5*x@dim[1], y = (90 + 5*x@dim[2]),label = input$imgsGreenStain, col = "black", cex = 0.8)
+      text(x = 20 + 2.5*x@dim[1], y = (90 + 5*x@dim[2]),label = input$imgsBlueStain, col = "black", cex = 0.8)
     }, x = output, lbl = values$img.files)
     s <- " "
     
@@ -142,6 +141,7 @@ The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts
 
 Raw Image Data 
 ```{r plots, echo = FALSE, warning = FALSE, out.width = "100%"}
+knitr::kable(data.frame("Filename"=values$img.files,"Alias"=values$aliases,row.names = seq_along(values$img.files)),caption="Reference table for image filename aliases used in Barplot 1 and 2")
 plot(barplot1())
 plot(barplot2())
 plot(boxplot1())

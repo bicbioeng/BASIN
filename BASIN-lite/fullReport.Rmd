@@ -37,8 +37,6 @@ The Bioinformatic Analysis, Statistic, and Image Comparison (BASIN) app extracts
 `r num_images` images were uploaded in this session:
 ```{r images, warning=FALSE, echo = FALSE, width = "100%"}
     # Format a plotting grid of sufficient size, then plot all images
-    # par(mfrow=c(ceiling(sqrt(length(values$imgs))),
-    #           ceiling(sqrt(length(values$imgs)))))
     par(mfrow=c(min(3, length(values$imgs)),
               ceiling(length(values$imgs)/3)))
     c <- 1

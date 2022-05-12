@@ -2,11 +2,7 @@ import numpy as np
 import time, os, sys
 from urllib.parse import urlparse
 import skimage.io
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 from inspect import getsourcefile
-#%matplotlib inline
-mpl.rcParams['figure.dpi'] = 300
 
 from urllib.parse import urlparse
 from cellpose import models, plot
@@ -24,7 +20,7 @@ imgs_2D = imgs
 for i in range(0,len(imgs)):
   if imgs[i].ndim < 3:
     imgs[i] = plot.image_to_rgb(imgs[i])
-    
+
 #model = models.Cellpose(gpu = False, model_type='cyto')
 model = models.CellposeModel(gpu = False, pretrained_model = os.path.join(os.path.dirname(
   getsourcefile(lambda:0)),"www","cellpose_residual_on_style_on_concatenation_off_Manually_curated_Images_and_Masks_2021_01_08_21_36_17.184931"))
