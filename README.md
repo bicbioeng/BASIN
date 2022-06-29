@@ -1,4 +1,4 @@
-# BASIN (Bioimage Analytic System Integration)
+# BASIN (Bioimage Analysis, Statistic, and Comparison)
 An R package that utilizes Shiny to provide a user interface
 for statistical analysis of two-dimensional confocal microscope images. Users
 can upload two images directly or a folder of images with the help of a
